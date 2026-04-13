@@ -32,7 +32,7 @@ Press `r` to rescan, **`R`** (shift+r) to run **`llama-server`** with the select
 ## Layout
 
 1. `cmd/llm-launch` — `main`, calls `internal/tui.Run()`
-2. `internal/tui` — Bubble Tea UI, Bubbles `table`
+2. `internal/tui` — Bubble Tea UI; table via `internal/tui/btable` (fork of Bubbles table)
 3. `internal/llamacpp` — GGUF discovery and metadata
 
 ## Discovery paths
@@ -64,11 +64,11 @@ The TUI locates **`llama-cli`** and **`llama-server`** independently so it can s
 
 Use **one environment variable** for every feature that needs a listen port:
 
-| Use | Behavior |
-| --- | --- |
-| **`R` (run server)** | `llama-server ... --port <n>` |
-| **Health probe** (no binaries on disk) | `GET http://127.0.0.1:<n>/health` |
-| **Bottom panel** | Shows `listen (R) :<n> (LLAMA_SERVER_PORT)` |
+| Use                                    | Behavior                                    |
+| -------------------------------------- | ------------------------------------------- |
+| **`R` (run server)**                   | `llama-server ... --port <n>`               |
+| **Health probe** (no binaries on disk) | `GET http://127.0.0.1:<n>/health`           |
+| **Bottom panel**                       | Shows `listen (R) :<n> (LLAMA_SERVER_PORT)` |
 
 Set it for the whole session, e.g. `export LLAMA_SERVER_PORT=9090`, or in **`mise.toml`** under **`[env]`** (same as `LLAMA_CPP_PATH`). If something already binds **8080** (another `llama-server`, Ollama, etc.), pick a free port (e.g. **9090**) and restart the app so detection and **`R`** stay in sync.
 
@@ -79,11 +79,11 @@ Set it for the whole session, e.g. `export LLAMA_SERVER_PORT=9090`, or in **`mis
 
 ## Setup
 
-1. Copy `.env.example` to `.env` if you need API keys or tokens
-2. Copy `config.toml.example` to `config.toml` for app config (optional)
-3. `mise install` — installs Go (latest) and other tools from `mise.toml`
-4. `npm install` — Prettier and markdownlint (docs / pre-commit)
-5. `go mod download`
+1. `mise install` — Go (see `mise.toml`) and tools (e.g. pre-commit via pipx)
+2. `npm ci` or `npm install` — Prettier and markdownlint (formatting / CI)
+3. `go mod download`
+
+**Configuration:** the app has **no** `config.toml` and does not load a `.env` file. It reads **environment variables only** (e.g. `LLAMA_CPP_PATH`, `LLAMA_SERVER_PORT`, `LLM_LAUNCH_LLAMACPP_PATHS`). Set them in your shell or under `[env]` in `mise.toml` (see **Discovery paths** and **llama.cpp binary detection** above in this file).
 
 ## Usage
 
