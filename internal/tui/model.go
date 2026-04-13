@@ -1,23 +1,94 @@
 package tui
 
-import tea "github.com/charmbracelet/bubbletea"
+import (
+	"strings"
 
-// Model is the root Bubble Tea model. Extend this struct with your application state
-// (navigation, forms, lists, API clients, etc.).
+	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/flyingnobita/llm-launch/internal/llamacpp"
+	btable "github.com/flyingnobita/llm-launch/internal/tui/btable"
+)
+
+// Model is the root Bubble Tea model.
 type Model struct {
-	width  int
-	height int
-	keys   KeyMap
+	width          int
+	height         int
+	bodyInnerW     int
+	tableBodyH     int
+	tableLineWidth int
+	keys           KeyMap
+	tbl            btable.Model
+	hscroll        viewport.Model
+	files          []llamacpp.ModelFile
+	runtime        llamacpp.RuntimeInfo
+	runtimeScanned bool
+	lastRunNote    string
+	loading        bool
+	loadErr        error
 }
 
-// New returns a model with default key bindings.
+// New returns a model with default key bindings and an empty table; Init triggers discovery.
 func New() Model {
+	t := btable.New(
+		btable.WithColumns(tableColumns(100, nil)),
+		btable.WithRows(nil),
+		btable.WithFocused(true),
+		btable.WithStyles(DefaultTableStyles()),
+		btable.WithWidth(96),
+		btable.WithHeight(18),
+	)
+	hv := viewport.New(96, 18)
+	hv.SetHorizontalStep(4)
+	hv.MouseWheelEnabled = true
 	return Model{
-		keys: DefaultKeyMap(),
+		keys:    DefaultKeyMap(),
+		tbl:     t,
+		hscroll: hv,
+		loading: true,
 	}
 }
 
 // Init implements tea.Model.
 func (m Model) Init() tea.Cmd {
-	return nil
+	return startupCmd()
+}
+
+func (m Model) layoutTable() Model {
+	w := m.width
+	if w < 56 {
+		w = 56
+	}
+	cols := tableColumns(w, m.files)
+	m.tbl.SetColumns(cols)
+	m.tbl.SetStyles(DefaultTableStyles())
+	innerW := m.width - 4
+	if innerW < 40 {
+		innerW = w - 4
+	}
+	m.bodyInnerW = innerW
+	minW := tableContentMinWidth(cols)
+	m.tbl.SetWidth(max(minW, innerW))
+	// Reserve space for header, bottom llama.cpp path panel, and footer (see view.go).
+	const layoutVerticalReserve = 16
+	h := m.height - layoutVerticalReserve
+	if m.height <= 0 {
+		h = 18
+	} else if h < 6 {
+		h = 6
+	}
+	m.tbl.SetHeight(h)
+	m.tbl.SetRows(buildTableRows(m.files, cols))
+	tview := m.tbl.View()
+	m.tableBodyH = max(1, strings.Count(tview, "\n")+1)
+	lines := strings.Split(tview, "\n")
+	if len(lines) > 0 {
+		m.tableLineWidth = lipgloss.Width(lines[0])
+	} else {
+		m.tableLineWidth = 0
+	}
+	m.hscroll.SetContent(tview)
+	m.hscroll.Width = innerW
+	m.hscroll.Height = m.tableBodyH
+	return m
 }
