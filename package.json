@@ -1,0 +1,8 @@
+{
+  "name": "llm-launch",
+  "private": true,
+  "devDependencies": {
+    "markdownlint-cli2": "^0.21.0",
+    "prettier": "^3.4.2"
+  }
+}

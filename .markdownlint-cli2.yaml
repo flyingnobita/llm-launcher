@@ -1,0 +1,7 @@
+# markdownlint-cli2 config - aligned with pre-commit
+gitignore: true
+config:
+  MD007:
+    indent: 4 # match nested list indent (2 is default)
+  MD013: false # line-length: docs often exceed 80 chars
+  MD036: false # no-emphasis-as-heading: allow italic for labels

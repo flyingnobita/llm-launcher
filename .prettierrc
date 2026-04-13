@@ -1,0 +1,10 @@
+{
+  "semi": true,
+  "singleQuote": false,
+  "overrides": [
+    {
+      "files": ["*.json", "*.yml", "*.yaml", ".prettierrc"],
+      "options": { "tabWidth": 2 }
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+# CI workflow. Go + Node (Prettier / markdownlint) via mise.
+# See: https://docs.github.com/en/actions
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+      - run: npm ci
+      - run: mise run check
