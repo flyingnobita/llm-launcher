@@ -122,3 +122,18 @@ func TestFormatPathDisplay_outsideHome(t *testing.T) {
 		t.Fatalf("got %q want %q", got, abs)
 	}
 }
+
+func TestFormatRuntimeLabel(t *testing.T) {
+	tests := []struct {
+		b    ModelBackend
+		want string
+	}{
+		{BackendLlama, "llama.cpp"},
+		{BackendVLLM, "vllm"},
+	}
+	for _, tt := range tests {
+		if got := FormatRuntimeLabel(tt.b); got != tt.want {
+			t.Fatalf("FormatRuntimeLabel(%v): got %q want %q", tt.b, got, tt.want)
+		}
+	}
+}

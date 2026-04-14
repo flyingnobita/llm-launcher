@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -92,11 +93,38 @@ func pathEnvDisplay(envKey string) string {
 	return FormatPathDisplay(v)
 }
 
+// venvRootFromActivateScript returns the venv root directory given an activate script path
+// (Unix: .../bin/activate, Windows: .../Scripts/activate.bat), or "" if activate is empty.
+func venvRootFromActivateScript(activate string) string {
+	activate = strings.TrimSpace(activate)
+	if activate == "" {
+		return ""
+	}
+	parent := filepath.Dir(activate)
+	return filepath.Dir(parent)
+}
+
+// vllmVenvPanelDisplay returns the value shown for VLLM_VENV in the runtime panel: the env var
+// when set, otherwise the venv root inferred from the same rules as vLLM activation (adjacent
+// bin layout, $VLLM_PATH/.venv, dirname(vllm)/.venv), or "—" when none applies.
+func vllmVenvPanelDisplay(r RuntimeInfo) string {
+	if strings.TrimSpace(os.Getenv(EnvVLLMVenv)) != "" {
+		return pathEnvDisplay(EnvVLLMVenv)
+	}
+	vllmBin := ResolveVLLMPath(r)
+	act := ResolveVLLMActivateScript(vllmBin)
+	if root := venvRootFromActivateScript(act); root != "" {
+		return FormatPathDisplay(root)
+	}
+	return "—"
+}
+
 // RuntimePanelLines returns lines for the TUI footer: each row is an environment variable name
-// (left) and its current value (right). Path vars use the process environment; port vars use
-// the env when set, otherwise the effective default (ListenPort / VLLMPort).
-// Lines are truncated to maxWidth display width.
-func RuntimePanelLines(maxWidth int) []string {
+// (left) and its current value (right), sorted alphabetically by name. Path vars use the process
+// environment; port vars use the env when set, otherwise the effective default (ListenPort /
+// VLLMPort). VLLM_VENV shows the env when set, otherwise the inferred venv root when activation
+// would run. Lines are truncated to maxWidth display width.
+func RuntimePanelLines(maxWidth int, r RuntimeInfo) []string {
 	if maxWidth < 24 {
 		maxWidth = 24
 	}
@@ -109,13 +137,22 @@ func RuntimePanelLines(maxWidth int) []string {
 		s := fmt.Sprintf("%-*s %s", runtimePanelEnvLabelWidth, envKey, v)
 		return TruncateRunes(s, maxWidth)
 	}
-	return []string{
-		line(EnvLlamaCppPath, pathEnvDisplay(EnvLlamaCppPath)),
-		line(EnvVLLMPath, pathEnvDisplay(EnvVLLMPath)),
-		line(EnvVLLMVenv, pathEnvDisplay(EnvVLLMVenv)),
-		line(EnvLlamaServerPort, portEnvDisplay(EnvLlamaServerPort, ListenPort())),
-		line(EnvVLLMServerPort, portEnvDisplay(EnvVLLMServerPort, VLLMPort())),
+	rows := []struct {
+		key   string
+		value string
+	}{
+		{EnvLlamaCppPath, pathEnvDisplay(EnvLlamaCppPath)},
+		{EnvLlamaServerPort, portEnvDisplay(EnvLlamaServerPort, ListenPort())},
+		{EnvVLLMPath, pathEnvDisplay(EnvVLLMPath)},
+		{EnvVLLMServerPort, portEnvDisplay(EnvVLLMServerPort, VLLMPort())},
+		{EnvVLLMVenv, vllmVenvPanelDisplay(r)},
 	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].key < rows[j].key })
+	out := make([]string, len(rows))
+	for i := range rows {
+		out[i] = line(rows[i].key, rows[i].value)
+	}
+	return out
 }
 
 // venvActivateScriptPath returns the shell script path for a Python venv root (the directory

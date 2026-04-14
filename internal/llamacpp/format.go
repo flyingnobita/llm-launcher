@@ -29,6 +29,16 @@ func FormatSize(b int64) string {
 	return fmt.Sprintf("%.1f %s", div, units[idx])
 }
 
+// FormatRuntimeLabel returns a short table label for the model backend ("llama.cpp", "vllm").
+func FormatRuntimeLabel(b ModelBackend) string {
+	switch b {
+	case BackendVLLM:
+		return "vllm"
+	default:
+		return "llama.cpp"
+	}
+}
+
 // FormatPathDisplay shortens the user home directory prefix to ~/ for TUI display only.
 // The original path should be kept for programmatic use (open, copy, compare).
 func FormatPathDisplay(absPath string) string {
