@@ -11,7 +11,7 @@ safetensors models on the local filesystem and launching `llama-server` or
 `vllm serve` for a selected row.
 
 - Language: **Go 1.26+**
-- UI framework: **Bubble Tea** (Elm-style TUI) + **Lip Gloss** (styling)
+- UI framework: **Bubble Tea v2** (`charm.land/bubbletea/v2`) + **Lip Gloss v2** (`charm.land/lipgloss/v2`) + **Bubbles v2** (`charm.land/bubbles/v2`)
 - GGUF metadata: `abrander/gguf`
 - Tooling: `mise` (tool versions + tasks), `npm` (Prettier + markdownlint only)
 - Releases: [GoReleaser](https://goreleaser.com/) (`.goreleaser.yaml`); pushing a `v*` tag runs `.github/workflows/release.yml` and publishes archives to GitHub Releases
@@ -25,7 +25,6 @@ cmd/llml/            # Binary entrypoint (main.go)
 internal/
   llamacpp/          # GGUF + safetensors discovery, metadata, runtime detection, formatting
   tui/               # Bubble Tea model, update, view, styles, keymaps
-  tui/btable/        # Vendored fork of charmbracelet/bubbles/table (per-cell Selected)
 scripts/             # gofmt-check.sh, precommit-docs-fix.sh
 ```
 
@@ -51,6 +50,15 @@ scripts/             # gofmt-check.sh, precommit-docs-fix.sh
   Lip Gloss styles are built in `styles.go` via `newStyles`. Do not call `lipgloss.NewStyle()` inline
   inside `View()` — extend `Theme` / `newStyles` instead.
 - Magic numbers belong in `constants.go` (package `tui`).
+
+#### Bubble Tea v2 API notes
+
+- **`View()` return type**: `tea.View` (not `string`). Wrap with `tea.NewView(s)`. Set `v.AltScreen = true` for the full-screen view; do **not** use the removed `tea.WithAltScreen()` program option.
+- **Key messages**: `tea.KeyPressMsg` (renamed from `tea.KeyMsg`). Fields are `Code rune` and `Text string` — not `Type`/`Runes`.
+- **`textinput` width**: `ti.SetWidth(n)` — not `ti.Width = n`.
+- **`viewport` constructor**: `viewport.New(viewport.WithWidth(w), viewport.WithHeight(h))` — not `viewport.New(w, h)`. Setters: `SetWidth` / `SetHeight`.
+- **Dark-terminal detection**: `compat.HasDarkBackground` (`charm.land/lipgloss/v2/compat`) is a `bool` variable, not a function. `lipgloss.Color` is a function (`func(string) color.Color`); use `color.Color` (from `image/color`) for `Theme` struct fields.
+- **Table selection styling**: The upstream `charm.land/bubbles/v2/table` is used directly (no fork). Selected-row highlighting uses a **background color** on the `Selected` style (`lipgloss.NewStyle().Background(theme.TableSelectedBg)`) so it does not conflict with per-cell foreground styles.
 
 ### Configuration
 
@@ -95,9 +103,8 @@ The pre-commit hook handles staged files automatically.
 - Unit tests for `internal/llamacpp` cover discovery, formatting, paths, and
   runtime detection.
 - Unit tests for `internal/tui` cover model initialization, parameter-profile
-  persistence, and server command construction.
-- `btable` has no separate tests (it is a minimal fork; behavior is covered by
-  the TUI tests).
+  persistence, server command construction, theme correctness (including
+  `TableSelectedBg`), `View()` alt-screen flag, and selected-style background rendering.
 - Do not mark a feature complete until `mise run check` passes.
 
 ---

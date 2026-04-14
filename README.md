@@ -5,7 +5,7 @@
 
 **LLM Launcher** (`llml`) is a terminal UI for discovering local **GGUF** and **Hugging Face-style safetensors** models and launching **[llama.cpp](https://github.com/ggerganov/llama.cpp)** (`llama-server`) or **[vLLM](https://github.com/vllm-project/vllm)** (`vllm serve`) for the selected row.
 
-Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), [Lip Gloss](https://github.com/charmbracelet/lipgloss), and a small fork of the Bubbles table (per-cell selection).
+Built with [Bubble Tea v2](https://charm.land/bubbletea/v2), [Lip Gloss v2](https://charm.land/lipgloss/v2), and [Bubbles v2](https://charm.land/bubbles/v2).
 
 ## Table of contents
 
@@ -189,7 +189,6 @@ Layout:
 
 - `cmd/llml` — entrypoint.
 - `internal/tui` — Bubble Tea UI.
-- `internal/tui/btable` — vendored table fork (per-cell selected styling).
 - `internal/llamacpp` — discovery, metadata, runtime detection.
 
 Contributions are welcome. Please run `mise run check` (or equivalent) before opening a pull request.

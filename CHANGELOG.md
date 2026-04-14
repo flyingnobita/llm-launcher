@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 Format: `- MMM-DD, YYYY - HH:MM AM/PM TIMEZONE - [Concise summary]`
 
+- Apr-14, 2026 - [Migrate to charm.land v2: bubbletea/v2, lipgloss/v2, bubbles/v2; adopt background-color selection (drops btable fork); View() returns tea.View with AltScreen; KeyPressMsg; viewport/textinput setter API]
 - Apr-14, 2026 - [TUI: theme toast as right-aligned reverse chip on the title row (~2s) instead of a full-width banner so layout does not shift]
 - Apr-14, 2026 - [TUI: table height from terminal chrome (`mainChromeLines`) so Bubble Tea does not clip title when models load]
 - Apr-14, 2026 - [TUI: main view vertically top-aligned so title/subtitle stay visible; modals stay centered]
