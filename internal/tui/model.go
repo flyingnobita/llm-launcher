@@ -3,12 +3,13 @@ package tui
 import (
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	btable "charm.land/bubbles/v2/table"
+	"charm.land/bubbles/v2/textinput"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/compat"
 	"github.com/flyingnobita/llml/internal/llamacpp"
-	btable "github.com/flyingnobita/llml/internal/tui/btable"
 )
 
 // Model is the root Bubble Tea model.
@@ -53,7 +54,7 @@ type Model struct {
 // New returns a model with default key bindings and an empty table; Init triggers discovery.
 func New() Model {
 	pick := initialThemePick()
-	th := themeFromPick(pick, lipgloss.HasDarkBackground)
+	th := themeFromPick(pick, compat.HasDarkBackground)
 	st := newStyles(th)
 	t := btable.New(
 		btable.WithColumns(tableColumns(100, nil)),
@@ -63,7 +64,7 @@ func New() Model {
 		btable.WithWidth(96),
 		btable.WithHeight(defaultTableHeight),
 	)
-	hv := viewport.New(96, defaultTableHeight)
+	hv := viewport.New(viewport.WithWidth(96), viewport.WithHeight(defaultTableHeight))
 	hv.SetHorizontalStep(hScrollStep)
 	return Model{
 		theme:     th,
@@ -180,8 +181,8 @@ func (m Model) layoutTable() Model {
 	}
 
 	m.hscroll.SetContent(tview)
-	m.hscroll.Width = innerW
-	m.hscroll.Height = m.tableBodyH
+	m.hscroll.SetWidth(innerW)
+	m.hscroll.SetHeight(m.tableBodyH)
 	return m
 }
 
@@ -189,7 +190,7 @@ func (m Model) layoutTable() Model {
 // shows a short toast on the title row naming the active mode.
 func (m Model) cycleTheme() (Model, tea.Cmd) {
 	m.themePick = (m.themePick + 1) % themePickCount
-	m.theme = themeFromPick(m.themePick, lipgloss.HasDarkBackground)
+	m.theme = themeFromPick(m.themePick, compat.HasDarkBackground)
 	m.styles = newStyles(m.theme)
 	m.themeToast = themeToastText(m.themePick, m.theme)
 	m = m.layoutTable()

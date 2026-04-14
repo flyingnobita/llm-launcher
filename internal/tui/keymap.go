@@ -1,6 +1,6 @@
 package tui
 
-import "github.com/charmbracelet/bubbles/key"
+import "charm.land/bubbles/v2/key"
 
 // KeyMap holds key bindings. Add fields here as your TUI grows, and wire them in Update.
 type KeyMap struct {

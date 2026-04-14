@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 	"github.com/flyingnobita/llml/internal/llamacpp"
 )
 
@@ -99,7 +99,7 @@ func newPortTextInput() textinput.Model {
 	ti := textinput.New()
 	ti.Placeholder = ""
 	ti.CharLimit = 5
-	ti.Width = 8
+	ti.SetWidth(8)
 	ti.Validate = validatePortInput
 	ti.Blur()
 	return ti
@@ -109,7 +109,7 @@ func newPathTextInput() textinput.Model {
 	ti := textinput.New()
 	ti.Placeholder = ""
 	ti.CharLimit = 2048
-	ti.Width = 56
+	ti.SetWidth(56)
 	ti.Blur()
 	return ti
 }
@@ -178,7 +178,7 @@ func (m Model) commitRuntimeConfig() (Model, tea.Cmd) {
 }
 
 // updateRuntimeConfigKey handles keys while the runtime env editor is open.
-func (m Model) updateRuntimeConfigKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) updateRuntimeConfigKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
 		m.lastRunNote = ""

@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 const (
@@ -35,7 +35,7 @@ func newParamLineTextInput() textinput.Model {
 	ti := textinput.New()
 	ti.Placeholder = ""
 	ti.CharLimit = 4096
-	ti.Width = 64
+	ti.SetWidth(64)
 	ti.Blur()
 	return ti
 }
@@ -141,7 +141,7 @@ func (m Model) openParamPanel() (Model, tea.Cmd) {
 	m.paramProfileIndex = clampInt(ent.ActiveIndex, 0, max(0, len(m.paramProfiles)-1))
 	m.paramFocus = paramFocusProfiles
 	m.loadCurrentProfileIn()
-	m.paramEditInput.Width = m.paramEditInnerWidth()
+	m.paramEditInput.SetWidth(m.paramEditInnerWidth())
 	return m, nil
 }
 
@@ -411,7 +411,7 @@ func (m Model) closeParamPanelWithPersist() (Model, tea.Cmd) {
 }
 
 // updateParamPanelKey handles keys while the parameters panel is open.
-func (m Model) updateParamPanelKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) updateParamPanelKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	if m.paramConfirmDelete != paramConfirmNone {
 		switch msg.String() {
 		case "y", "Y":

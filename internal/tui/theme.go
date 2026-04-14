@@ -1,10 +1,12 @@
 package tui
 
 import (
+	"image/color"
 	"os"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/compat"
 )
 
 // EnvLLMLTheme is the environment variable that selects the color theme.
@@ -37,25 +39,26 @@ func themeToastText(pick int, resolved Theme) string {
 	}
 }
 
-// Theme holds semantic colors for the TUI. All values are ANSI 256 or hex
-// strings suitable for lipgloss.Color.
+// Theme holds semantic colors for the TUI. All values are image/color.Color
+// values, typically created via lipgloss.Color("ANSI-or-hex-string").
 type Theme struct {
-	Title        lipgloss.Color
-	Subtitle     lipgloss.Color
-	Body         lipgloss.Color
-	Footer       lipgloss.Color
-	Error        lipgloss.Color
-	Border       lipgloss.Color
-	RuntimePanel lipgloss.Color
-	ModalTitle   lipgloss.Color
+	Title        color.Color
+	Subtitle     color.Color
+	Body         color.Color
+	Footer       color.Color
+	Error        color.Color
+	Border       color.Color
+	RuntimePanel color.Color
+	ModalTitle   color.Color
 	// ParamSectionHeading labels nested blocks inside the parameters modal (env / argv).
-	ParamSectionHeading lipgloss.Color
-	ModalBody           lipgloss.Color
-	TableHeader         lipgloss.Color
-	TableCell           lipgloss.Color
-	TableSelected       lipgloss.Color
+	ParamSectionHeading color.Color
+	ModalBody           color.Color
+	TableHeader         color.Color
+	TableCell           color.Color
+	TableSelected       color.Color
+	TableSelectedBg     color.Color
 	// ParamProfileName highlights parameter profile names in the params modal.
-	ParamProfileName lipgloss.Color
+	ParamProfileName color.Color
 }
 
 // DarkTheme returns the default dark-terminal palette (original llml colors).
@@ -75,7 +78,8 @@ func DarkTheme() Theme {
 		ModalBody:           lipgloss.Color("252"),
 		TableHeader:         lipgloss.Color("252"),
 		TableCell:           lipgloss.Color("252"),
-		TableSelected:       lipgloss.Color("51"),
+		TableSelected:       lipgloss.Color("17"),
+		TableSelectedBg:     lipgloss.Color("51"),
 		// Distinct from ModalTitle / ParamSectionHeading; warm vs purple chrome.
 		ParamProfileName: lipgloss.Color("178"),
 	}
@@ -98,7 +102,8 @@ func LightTheme() Theme {
 		ModalBody:           lipgloss.Color("235"),
 		TableHeader:         lipgloss.Color("235"),
 		TableCell:           lipgloss.Color("235"),
-		TableSelected:       lipgloss.Color("27"),
+		TableSelected:       lipgloss.Color("255"),
+		TableSelectedBg:     lipgloss.Color("27"),
 		// Distinct from ModalTitle / ParamSectionHeading; green accent on light bg.
 		ParamProfileName: lipgloss.Color("30"),
 	}
@@ -118,15 +123,15 @@ func initialThemePick() int {
 }
 
 // themeFromPick returns the palette for a pick value. themePickAuto uses
-// detectDark to choose dark vs light (same rules as LLML_THEME=auto).
-func themeFromPick(pick int, detectDark func() bool) Theme {
+// isDark to choose dark vs light (same rules as LLML_THEME=auto).
+func themeFromPick(pick int, isDark bool) Theme {
 	switch pick {
 	case themePickDark:
 		return DarkTheme()
 	case themePickLight:
 		return LightTheme()
 	default:
-		if detectDark() {
+		if isDark {
 			return DarkTheme()
 		}
 		return LightTheme()
@@ -135,11 +140,11 @@ func themeFromPick(pick int, detectDark func() bool) Theme {
 
 // resolveTheme picks a theme from LLML_THEME and terminal background detection.
 func resolveTheme() Theme {
-	return resolveThemeWithDetector(lipgloss.HasDarkBackground)
+	return resolveThemeWithDetector(func() bool { return compat.HasDarkBackground })
 }
 
 // resolveThemeWithDetector is like resolveTheme but uses detectDark for the auto path
 // (including unknown env values), so tests do not depend on the real terminal.
 func resolveThemeWithDetector(detectDark func() bool) Theme {
-	return themeFromPick(initialThemePick(), detectDark)
+	return themeFromPick(initialThemePick(), detectDark())
 }

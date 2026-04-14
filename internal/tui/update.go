@@ -1,9 +1,9 @@
 package tui
 
 import (
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 	"github.com/atotto/clipboard"
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/flyingnobita/llml/internal/llamacpp"
 )
@@ -21,7 +21,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		m = m.layoutTable()
 		if m.paramPanelOpen {
-			m.paramEditInput.Width = m.paramEditInnerWidth()
+			m.paramEditInput.SetWidth(m.paramEditInnerWidth())
 		}
 		return m, nil
 
@@ -55,7 +55,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		if m.paramPanelOpen {
 			return m.updateParamPanelKey(msg)
 		}

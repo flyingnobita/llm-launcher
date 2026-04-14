@@ -3,8 +3,8 @@ package tui
 import (
 	"github.com/mattn/go-runewidth"
 
+	btable "charm.land/bubbles/v2/table"
 	"github.com/flyingnobita/llml/internal/llamacpp"
-	btable "github.com/flyingnobita/llml/internal/tui/btable"
 )
 
 // tableColumns computes per-column widths from the inner body width (usable

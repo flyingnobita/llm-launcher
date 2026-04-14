@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/flyingnobita/llml/internal/llamacpp"
 )
 
@@ -165,15 +166,15 @@ func (m Model) modalTitleRow(innerW int, titleStyle lipgloss.Style, plain string
 }
 
 // View implements tea.Model.
-func (m Model) View() string {
+func (m Model) View() tea.View {
 	if m.width == 0 {
-		return "\n  Initializing…\n"
+		return tea.NewView("\n  Initializing…\n")
 	}
 	if m.paramPanelOpen {
-		return m.paramPanelView()
+		return tea.NewView(m.paramPanelView())
 	}
 	if m.runtimeConfigOpen {
-		return m.runtimeConfigView()
+		return tea.NewView(m.runtimeConfigView())
 	}
 
 	iw := m.innerWidth()
@@ -195,8 +196,8 @@ func (m Model) View() string {
 		if th < 1 {
 			th = defaultTableHeight
 		}
-		m.hscroll.Width = iw
-		m.hscroll.Height = th
+		m.hscroll.SetWidth(iw)
+		m.hscroll.SetHeight(th)
 		body = m.hscroll.View()
 	}
 
@@ -224,7 +225,9 @@ func (m Model) View() string {
 	block := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	framed := m.styles.app.Render(block)
 
-	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Top, framed)
+	v := tea.NewView(lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Top, framed))
+	v.AltScreen = true
+	return v
 }
 
 func (m Model) runtimeConfigView() string {

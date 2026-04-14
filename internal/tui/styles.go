@@ -1,9 +1,9 @@
 package tui
 
 import (
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 
-	btable "github.com/flyingnobita/llml/internal/tui/btable"
+	btable "charm.land/bubbles/v2/table"
 )
 
 // styles holds all lipgloss styles for one resolved theme.
@@ -25,8 +25,10 @@ type styles struct {
 	table               btable.Styles
 }
 
-// newStyles builds lipgloss styles from a Theme. Table Header, Cell, and
-// Selected use PaddingRight(1) so columns align (Selected must match Cell).
+// newStyles builds lipgloss styles from a Theme. Header and Cell use
+// PaddingRight(1) for column spacing. Selected has no padding — it wraps
+// the fully-rendered row (cells already padded) so adding padding here
+// would double-pad and shift the content.
 func newStyles(theme Theme) styles {
 	return styles{
 		app: lipgloss.NewStyle().Padding(1, appPaddingH),
@@ -83,12 +85,11 @@ func newStyles(theme Theme) styles {
 				Foreground(theme.TableHeader).
 				PaddingRight(1),
 			Cell: lipgloss.NewStyle().
-				Foreground(theme.TableCell).
 				PaddingRight(1),
 			Selected: lipgloss.NewStyle().
 				Bold(true).
 				Foreground(theme.TableSelected).
-				PaddingRight(1),
+				Background(theme.TableSelectedBg),
 		},
 	}
 }
