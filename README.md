@@ -3,30 +3,13 @@
 [![Go](https://img.shields.io/github/go-mod/go-version/flyingnobita/llml)](go.mod)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**LLM Launcher** (`llml`) is a terminal UI for discovering local **GGUF** and **Hugging Face-style safetensors** models and launching **[llama.cpp](https://github.com/ggerganov/llama.cpp)** (`llama-server`) or **[vLLM](https://github.com/vllm-project/vllm)** (`vllm serve`) for the selected row.
-
-Built with [Bubble Tea v2](https://charm.land/bubbletea/v2), [Lip Gloss v2](https://charm.land/lipgloss/v2), and [Bubbles v2](https://charm.land/bubbles/v2).
-
-## Table of contents
-
-- [Features](#features)
-- [Requirements](#requirements)
-- [Install](#install)
-- [Quick start](#quick-start)
-- [Usage](#usage)
-- [Configuration](#configuration)
-- [How it finds models](#how-it-finds-models)
-- [Runtime detection](#runtime-detection)
-- [Development](#development)
-- [License](#license)
+**LLM Launcher** (`llml`) is a terminal UI for discovering local **GGUF** and **Hugging Face-style safetensors** models. It supports multiple inference engines including **[llama.cpp](https://github.com/ggerganov/llama.cpp)** (`llama-server`) and **[vLLM](https://github.com/vllm-project/vllm)** (`vllm serve`).
 
 ## Features
 
-- **One table** for GGUF files and safetensors checkpoints: name, path, size, last modified, and parameter summary (GGUF metadata or `config.json` for vLLM).
-- **Rescan** with `r`; **launch** the server for the selected row with **`R`** (shift+r): `llama-server` for GGUF, `vllm serve` for checkpoint directories.
-- **Runtime editor** (`c`): edit `LLAMA_CPP_PATH`, `VLLM_PATH`, `VLLM_VENV`, `LLAMA_SERVER_PORT`, and `VLLM_SERVER_PORT` in the TUI (tab / shift+tab between fields).
-- **Parameter profiles** (`p`): per-model named profiles of extra environment variables and CLI arguments; persisted under your OS config directory (see below).
-- **Sensible defaults** for scan roots and binary resolution, overridable via environment variables.
+- **One table** for for all your GGUF files and safetensors models.
+- **Parameter profiles** (`p`): per-model named profiles of extra environment variables and CLI arguments.This allows easy model runtime parameter tweaking.
+- **Auto-discovery** of for scan roots and binary resolution, overridable via environment variables.
 
 ## Requirements
 
@@ -78,19 +61,22 @@ Place models under default scan locations (see [How it finds models](#how-it-fin
 
 ## Usage
 
-| Key                       | Action                                                                            |
-| ------------------------- | --------------------------------------------------------------------------------- |
-| `↑` `↓` `←` `→` or `hjkl` | Move selection; horizontal scroll when the path column is wider than the terminal |
-| `r`                       | Rescan filesystem                                                                 |
-| **`R`**                   | Run server for selected row (`llama-server` or `vllm serve`)                      |
-| `c`                       | Edit runtime environment (paths, ports)                                           |
-| `p`                       | Edit parameter profiles for the selected model                                    |
-| `t`                       | Cycle theme (`dark` → `light` → `auto` → …)                                       |
-| `q`                       | Quit                                                                              |
+| Key          | Action                                                                            |
+| ------------ | --------------------------------------------------------------------------------- |
+| `hjkl/↑↓←→`  | Move selection; horizontal scroll when the path column is wider than the terminal |
+| `r`          | Rescan filesystem                                                                 |
+| **`R`**      | Run server (split view: table + log pane)                                         |
+| **ctrl+`R`** | Run server full-screen (`tea.ExecProcess`; same as older behavior)                |
+| `c`          | Edit runtime environment (paths, ports)                                           |
+| `p`          | Edit parameter profiles for the selected model                                    |
+| `t`          | Cycle theme (`dark` → `light` → `auto` → …)                                       |
+| `q`          | Quit                                                                              |
 
 ### Server output
 
-By default, **`R`** uses Bubble Tea’s [`tea.ExecProcess`](https://github.com/charmbracelet/bubbletea): the alternate screen is released and the server process is attached to your terminal so logs print normally until exit. On **Linux/macOS**, a small `sh` wrapper echoes the exact command (line starting with `+`), runs the server, then prompts **Press Enter to return to LLM Launcher…** before restoring the TUI. On **Windows**, the server runs without that echo/pause.
+**`R`** runs the server in a **split layout**: the model table stays in the upper half and **stdout/stderr** stream into a scrollable log pane below (ANSI colors pass through). The model list is always shown with a rounded border; in split mode the **focused** pane uses a brighter border and the other a dimmer one. Focus starts on the **table**; **tab** switches focus between the table and the log. **esc**, **q**, or **ctrl+c** stops the subprocess; **`hjkl/↑↓←→`** moves/scrolls the focused pane (including **PgUp/PgDn** where supported; mouse wheel follows focus).
+
+**ctrl+`R`** uses Bubble Tea’s [`tea.ExecProcess`](https://github.com/charmbracelet/bubbletea): the alternate screen is released and the server process is attached to your terminal so logs print like a normal process until exit. (We use **ctrl+`R`** for full-screen instead of shift+`R` because typing uppercase **R** on common layouts already involves Shift, which would be indistinguishable from a separate “shift+R” binding.) On **Linux/macOS**, a small `sh` wrapper echoes the exact command (line starting with `+`), runs the server, then prompts **Press Enter to return to LLM Launcher…** before restoring the TUI. On **Windows**, the server runs without that echo/pause.
 
 You can also run the printed command manually in another terminal, or redirect output with your shell.
 
@@ -101,7 +87,7 @@ Each model path can have **multiple named profiles**. Each profile stores:
 - **Environment variables** (`KEY=value` per line).
 - **Extra arguments** appended after `--port` (for vLLM, flags and values are separate argv tokens; the UI may show `--flag value` on one line).
 
-**`R`** uses the **active** profile (the one highlighted in the `p` panel; changes persist automatically). **tab** cycles: profile list → env → extra args. In the list: **`n`** new profile, **`d`** delete (not the last), **`r`** rename. **esc** or **q** closes the panel (**q** on the main screen still quits the app).
+**`R`** / **ctrl+`R`** use the **active** profile (the one highlighted in the `p` panel; changes persist automatically). **tab** cycles: profile list → env → extra args. In the list: **`n`** new profile, **`d`** delete (not the last), **`r`** rename. **esc** or **q** closes the panel (**q** on the main screen still quits the app unless a split-pane server is running).
 
 Storage is a single JSON file (not environment variables):
 

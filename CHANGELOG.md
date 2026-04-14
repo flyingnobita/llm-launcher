@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 Format: `- MMM-DD, YYYY - HH:MM AM/PM TIMEZONE - [Concise summary]`
 
+- Apr-14, 2026 - [TUI: split-pane — remove middle separator/hints row; table rounded border always on (idle + split); focus still via brighter/dimmer pane borders]
+- Apr-14, 2026 - [TUI: split-pane focus — rounded borders brighter on focused pane (dim on other)]
+- Apr-14, 2026 - [TUI: split-pane — tab switches focus table ↔ log (default table); mouse wheel follows focus; README]
+- Apr-14, 2026 - [TUI: split-pane log — rounded border; vertical █/░ track when lines overflow; horizontal log scroll bar when lines exceed width; `layoutTable` after each log line for width]
+- Apr-14, 2026 - [TUI: split-pane stop — esc/`ctrl+c` key detection; `tea.WithFilter` maps SIGINT to stop-server while server runs; Unix `Setpgid` + `Kill(-pid, SIGINT)` for `sh -c` children]
+- Apr-14, 2026 - [TUI: `R` runs llama-server/vLLM in split-pane (table + log viewport, ANSI passthrough); `ctrl+R` full-terminal `tea.ExecProcess` (not shift+R — Shift is already set for uppercase R); esc/q/ctrl+c stop split server; README]
 - Apr-14, 2026 - [Refactor: split `param_panel` and `llamacpp` runtime into focused files; shared `walkSearchTree` for GGUF/safetensors walks; `FormatPathDisplay`/`FormatModelFolderDisplay` take `homeDir`; title/toast styles in `styles.go`; metadata/safetensors tests and test helpers]
 - Apr-14, 2026 - [Migrate to charm.land v2: bubbletea/v2, lipgloss/v2, bubbles/v2; adopt background-color selection (drops btable fork); View() returns tea.View with AltScreen; KeyPressMsg; viewport/textinput setter API]
 - Apr-14, 2026 - [TUI: theme toast as right-aligned reverse chip on the title row (~2s) instead of a full-width banner so layout does not shift]
