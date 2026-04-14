@@ -6,65 +6,89 @@ import (
 	btable "github.com/flyingnobita/llml/internal/tui/btable"
 )
 
-// DefaultTableStyles sets header/cell colors and spacing.
-// Selected uses a bright cyan (ANSI 256 #51) so the active row stands out vs gray body text (252).
-// PaddingRight(1) on Header, Cell, and Selected keeps columns aligned (Selected must match Cell).
-// Using Padding(0,1) on Cell only would add a leading gap in the first column.
-// Rendering uses internal/tui/btable so Selected applies per cell (reliable fg/bg across the row).
-func DefaultTableStyles() btable.Styles {
-	return btable.Styles{
-		Header: lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("252")).
-			PaddingRight(1),
-		Cell: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("252")).
-			PaddingRight(1),
-		Selected: lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("51")).
-			PaddingRight(1),
-	}
+// styles holds all lipgloss styles for one resolved theme.
+type styles struct {
+	app                 lipgloss.Style
+	title               lipgloss.Style
+	subtitle            lipgloss.Style
+	body                lipgloss.Style
+	footer              lipgloss.Style
+	errLine             lipgloss.Style
+	runtimePanel        lipgloss.Style
+	portConfigTitle     lipgloss.Style
+	portConfigBox       lipgloss.Style
+	paramSectionBox     lipgloss.Style
+	paramConfirmDialog  lipgloss.Style
+	paramSectionHeading lipgloss.Style
+	themeToastInline    lipgloss.Style
+	paramProfileName    lipgloss.Style
+	table               btable.Styles
 }
 
-// Central place for Lip Gloss styles. Adjust palette as your design evolves.
-var (
-	app = lipgloss.NewStyle().Padding(1, appPaddingH)
-
-	titleStyle = lipgloss.NewStyle().
+// newStyles builds lipgloss styles from a Theme. Table Header, Cell, and
+// Selected use PaddingRight(1) so columns align (Selected must match Cell).
+func newStyles(theme Theme) styles {
+	return styles{
+		app: lipgloss.NewStyle().Padding(1, appPaddingH),
+		title: lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("99")).
-			MarginBottom(1)
-
-	subtitleStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("241")).
-			MarginBottom(1)
-
-	bodyStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("252"))
-
-	footerStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240")).
-			MarginTop(1)
-
-	// errorStyle is used for load errors and server run notes (ANSI red #203).
-	errorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("203"))
-
-	// Bottom panel: runtime env vars and values (border separates from table body).
-	runtimePanelStyle = lipgloss.NewStyle().
-				BorderTop(true).
-				BorderForeground(lipgloss.Color("240")).
-				Foreground(lipgloss.Color("246")).
-				Padding(1, 0).
-				MarginTop(1)
-
-	portConfigTitleStyle = lipgloss.NewStyle().
+			Foreground(theme.Title).
+			MarginBottom(1),
+		subtitle: lipgloss.NewStyle().
+			Foreground(theme.Subtitle).
+			MarginBottom(1),
+		body: lipgloss.NewStyle().
+			Foreground(theme.Body),
+		footer: lipgloss.NewStyle().
+			Foreground(theme.Footer).
+			MarginTop(1),
+		errLine: lipgloss.NewStyle().Foreground(theme.Error),
+		runtimePanel: lipgloss.NewStyle().
+			BorderTop(true).
+			BorderForeground(theme.Border).
+			Foreground(theme.RuntimePanel).
+			Padding(1, 0).
+			MarginTop(1),
+		portConfigTitle: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(theme.ModalTitle),
+		portConfigBox: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(theme.Border).
+			Padding(1, 2).
+			Foreground(theme.ModalBody),
+		// Nested sections inside the parameters modal (env + argv).
+		paramSectionBox: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(theme.Border).
+			Padding(0, 1),
+		paramConfirmDialog: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(theme.Error).
+			Padding(0, 1),
+		paramSectionHeading: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(theme.ParamSectionHeading),
+		// Compact reversed chip on the title row (no extra viewport row).
+		themeToastInline: lipgloss.NewStyle().
+			Bold(true).
+			Reverse(true).
+			Padding(0, 1),
+		paramProfileName: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(theme.ParamProfileName),
+		table: btable.Styles{
+			Header: lipgloss.NewStyle().
 				Bold(true).
-				Foreground(lipgloss.Color("99"))
-
-	portConfigBoxStyle = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("240")).
-				Padding(1, 2).
-				Foreground(lipgloss.Color("252"))
-)
+				Foreground(theme.TableHeader).
+				PaddingRight(1),
+			Cell: lipgloss.NewStyle().
+				Foreground(theme.TableCell).
+				PaddingRight(1),
+			Selected: lipgloss.NewStyle().
+				Bold(true).
+				Foreground(theme.TableSelected).
+				PaddingRight(1),
+		},
+	}
+}

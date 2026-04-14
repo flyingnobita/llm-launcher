@@ -20,14 +20,149 @@ func runtimePanelView(m Model, contentWidth int) string {
 	if !m.runtimeScanned && m.loading {
 		block = "Detecting runtimes…"
 	} else {
-		lines := llamacpp.RuntimePanelLines(contentWidth)
+		lines := llamacpp.RuntimePanelLines(contentWidth, m.runtime)
 		block = strings.Join(lines, "\n")
 	}
 	inner := "Runtimes\n" + block
-	return runtimePanelStyle.Width(contentWidth).Render(inner)
+	return m.styles.runtimePanel.Width(contentWidth).Render(inner)
 }
 
 const appTitle = "LLM Launcher"
+
+// footerHelpLine is the keyboard hint line (shared with layout height math).
+// Each binding uses "key: description"; bindings are separated by " · ".
+// The same convention is used for modal hint bars (runtime config, parameters).
+func footerHelpLine(m Model) string {
+	return fmt.Sprintf(
+		"%s: %s · %s: %s · %s: %s · %s: %s · %s: %s · %s: %s · %s: %s · %s: %s · %d×%d",
+		m.keys.Refresh.Help().Key, m.keys.Refresh.Help().Desc,
+		m.keys.RunServer.Help().Key, m.keys.RunServer.Help().Desc,
+		m.keys.ConfigPort.Help().Key, m.keys.ConfigPort.Help().Desc,
+		m.keys.Parameters.Help().Key, m.keys.Parameters.Help().Desc,
+		m.keys.ToggleTheme.Help().Key, m.keys.ToggleTheme.Help().Desc,
+		m.keys.Quit.Help().Key, m.keys.Quit.Help().Desc,
+		m.keys.Nav.Help().Key, m.keys.Nav.Help().Desc,
+		m.keys.CopyPath.Help().Key, m.keys.CopyPath.Help().Desc,
+		m.width, m.height,
+	)
+}
+
+// mainChromeLines counts rows in the main view block excluding the table body
+// (title, subtitle, scroll bar, runtime panel, footer). needsHBar should match
+// whether the horizontal scroll track is shown.
+func mainChromeLines(m Model, needsHBar bool) int {
+	iw := m.innerWidth()
+	n := lipgloss.Height(m.appTitleBlock(iw))
+	n += lipgloss.Height(m.styles.subtitle.Render(appSubtitle))
+	n += 1
+
+	if needsHBar && len(m.files) > 0 {
+		if bar := horizontalScrollBarLine(0, iw); bar != "" {
+			n += lipgloss.Height(m.styles.footer.Render(bar))
+		}
+	}
+
+	if m.width > 0 {
+		if rp := runtimePanelView(m, iw); rp != "" {
+			n += lipgloss.Height(rp)
+		}
+	}
+
+	n += 1
+	n += lipgloss.Height(m.styles.footer.Render(footerHelpLine(m)))
+
+	if m.lastRunNote != "" {
+		n += lipgloss.Height(m.styles.errLine.Render(m.lastRunNote))
+	}
+	return n
+}
+
+// portConfigContentWidth is the maximum text width inside the runtime/param modal box.
+func (m Model) portConfigContentWidth() int {
+	if m.width <= 0 {
+		return minInnerWidth
+	}
+	w := m.width - m.styles.portConfigBox.GetHorizontalFrameSize()
+	if w < minInnerWidth {
+		return minInnerWidth
+	}
+	return w
+}
+
+// paramPanelContentWidth is the inner width for the parameters modal only. It
+// matches portConfigContentWidth on narrow terminals but is capped on wide ones.
+func (m Model) paramPanelContentWidth() int {
+	w := m.portConfigContentWidth()
+	if w > paramPanelMaxInnerWidth {
+		w = paramPanelMaxInnerWidth
+	}
+	if w < minInnerWidth {
+		w = minInnerWidth
+	}
+	return w
+}
+
+// fitThemeToastInline renders the transient theme message as a compact reversed chip
+// that fits in maxW terminal columns (or returns "" if it cannot).
+func (m Model) fitThemeToastInline(maxW int) string {
+	if maxW < 4 || m.themeToast == "" {
+		return ""
+	}
+	runes := []rune(m.themeToast)
+	for len(runes) > 0 {
+		s := string(runes)
+		rendered := m.styles.themeToastInline.Render(s)
+		if lipgloss.Width(rendered) <= maxW {
+			return rendered
+		}
+		runes = runes[:len(runes)-1]
+	}
+	return ""
+}
+
+// appTitleBlock renders the app title with an optional same-row theme toast
+// (right-aligned), using the same vertical space as styles.title.
+func (m Model) appTitleBlock(innerW int) string {
+	if m.themeToast == "" {
+		return m.styles.title.Render(appTitle)
+	}
+	left := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Title).Render(appTitle)
+	lw := lipgloss.Width(left)
+	if lw >= innerW {
+		return m.styles.title.Render(appTitle)
+	}
+	toast := m.fitThemeToastInline(innerW - lw)
+	if toast == "" {
+		return m.styles.title.Render(appTitle)
+	}
+	gap := innerW - lw - lipgloss.Width(toast)
+	if gap < 1 {
+		gap = 1
+	}
+	line := lipgloss.JoinHorizontal(lipgloss.Top, left, strings.Repeat(" ", gap), toast)
+	return lipgloss.NewStyle().MarginBottom(1).Render(line)
+}
+
+// modalTitleRow renders a one-line modal title with an optional same-row theme toast.
+func (m Model) modalTitleRow(innerW int, titleStyle lipgloss.Style, plain string) string {
+	if m.themeToast == "" {
+		return titleStyle.Render(plain)
+	}
+	left := titleStyle.Render(plain)
+	lw := lipgloss.Width(left)
+	if lw >= innerW {
+		return left
+	}
+	toast := m.fitThemeToastInline(innerW - lw)
+	if toast == "" {
+		return left
+	}
+	gap := innerW - lw - lipgloss.Width(toast)
+	if gap < 1 {
+		gap = 1
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, left, strings.Repeat(" ", gap), toast)
+}
 
 // View implements tea.Model.
 func (m Model) View() string {
@@ -41,18 +176,19 @@ func (m Model) View() string {
 		return m.runtimeConfigView()
 	}
 
-	title := titleStyle.Render(appTitle)
-	sub := subtitleStyle.Render(appSubtitle)
 	iw := m.innerWidth()
+
+	title := m.appTitleBlock(iw)
+	sub := m.styles.subtitle.Render(appSubtitle)
 
 	var body string
 	switch {
 	case m.loading:
-		body = bodyStyle.Render("Scanning for models…")
+		body = m.styles.body.Render("Scanning for models…")
 	case m.loadErr != nil:
-		body = errorStyle.Render("Error: " + m.loadErr.Error())
+		body = m.styles.errLine.Render("Error: " + m.loadErr.Error())
 	case len(m.files) == 0:
-		body = bodyStyle.Render("No GGUF or safetensors models found. Set HUGGINGFACE_HUB_CACHE or HF_HOME if your Hub cache is non-default; add paths via LLM_LAUNCH_LLAMACPP_PATHS or place models under ~/models, ~/.cache/huggingface/hub, etc.")
+		body = m.styles.body.Render("No GGUF or safetensors models found. Set HUGGINGFACE_HUB_CACHE or HF_HOME if your Hub cache is non-default; add paths via LLM_LAUNCH_LLAMACPP_PATHS or place models under ~/models, ~/.cache/huggingface/hub, etc.")
 	default:
 		m.hscroll.SetContent(m.tbl.View())
 		th := m.tableBodyH
@@ -67,21 +203,10 @@ func (m Model) View() string {
 	var hBar string
 	if len(m.files) > 0 && m.tableLineWidth > 0 && m.tableLineWidth > iw {
 		pct := m.hscroll.HorizontalScrollPercent()
-		hBar = footerStyle.Render(horizontalScrollBarLine(pct, iw))
+		hBar = m.styles.footer.Render(horizontalScrollBarLine(pct, iw))
 	}
 
-	help := fmt.Sprintf(
-		"%s %s · %s %s · %s %s · %s %s · %s %s · ↑/↓ · %s %s · %s %s · %d×%d",
-		m.keys.Refresh.Help().Key, m.keys.Refresh.Help().Desc,
-		m.keys.RunServer.Help().Key, m.keys.RunServer.Help().Desc,
-		m.keys.ConfigPort.Help().Key, m.keys.ConfigPort.Help().Desc,
-		m.keys.Parameters.Help().Key, m.keys.Parameters.Help().Desc,
-		m.keys.Quit.Help().Key, m.keys.Quit.Help().Desc,
-		m.keys.CopyPath.Help().Key, m.keys.CopyPath.Help().Desc,
-		m.keys.ScrollLeft.Help().Key, m.keys.ScrollLeft.Help().Desc,
-		m.width, m.height,
-	)
-	footer := footerStyle.Render(help)
+	footer := m.styles.footer.Render(footerHelpLine(m))
 
 	runtimePanel := runtimePanelView(m, iw)
 
@@ -94,12 +219,12 @@ func (m Model) View() string {
 	}
 	rows = append(rows, "", footer)
 	if m.lastRunNote != "" {
-		rows = append(rows, errorStyle.Render(m.lastRunNote))
+		rows = append(rows, m.styles.errLine.Render(m.lastRunNote))
 	}
 	block := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	framed := app.Render(block)
+	framed := m.styles.app.Render(block)
 
-	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, framed)
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Top, framed)
 }
 
 func (m Model) runtimeConfigView() string {
@@ -108,10 +233,11 @@ func (m Model) runtimeConfigView() string {
 		if focused {
 			prefix = "› "
 		}
-		return bodyStyle.Render(prefix + name)
+		return m.styles.body.Render(prefix + name)
 	}
+	cw := m.portConfigContentWidth()
 	rows := []string{
-		portConfigTitleStyle.Render("Runtime environment"),
+		m.modalTitleRow(cw, m.styles.portConfigTitle, "Runtime environment"),
 		"",
 		label(m.runtimeFocus == runtimeFieldLlamaCppPath, llamacpp.EnvLlamaCppPath),
 		m.runtimeInputs[runtimeFieldLlamaCppPath].View(),
@@ -128,13 +254,13 @@ func (m Model) runtimeConfigView() string {
 		label(m.runtimeFocus == runtimeFieldVLLMPort, llamacpp.EnvVLLMServerPort),
 		m.runtimeInputs[runtimeFieldVLLMPort].View(),
 		"",
-		footerStyle.Render("tab next · shift+tab prev · ⏎ save · esc cancel · ctrl+c quit"),
+		m.styles.footer.Render("tab: next · shift+tab: prev · enter: save · esc: cancel"),
 	}
 	block := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	if m.lastRunNote != "" {
-		block = lipgloss.JoinVertical(lipgloss.Left, block, "", errorStyle.Render(m.lastRunNote))
+		block = lipgloss.JoinVertical(lipgloss.Left, block, "", m.styles.errLine.Render(m.lastRunNote))
 	}
-	framed := portConfigBoxStyle.Render(block)
+	framed := m.styles.portConfigBox.Render(block)
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, framed)
 }
 

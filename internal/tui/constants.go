@@ -12,10 +12,6 @@ const (
 	// WindowSizeMsg arrives.
 	defaultTableHeight = 18
 
-	// layoutVerticalReserve is the number of terminal rows consumed by the title,
-	// subtitle, blank lines, runtime panel, footer, and outer padding.
-	layoutVerticalReserve = 17
-
 	// appPaddingH is the Lip Gloss horizontal padding per side (app style uses
 	// Padding(1, 2), so 2 on each side = 4 total consumed columns).
 	appPaddingH = 2
@@ -25,14 +21,18 @@ const (
 
 	// appSubtitle is the subtitle line shown below the app title.
 	appSubtitle = "llama.cpp (GGUF) · vLLM (config.json + safetensors) — filesystem scan · Last modified = file mtime"
+
+	// paramPanelMaxInnerWidth caps the parameters modal inner width on wide
+	// terminals so the panel does not stretch edge-to-edge.
+	paramPanelMaxInnerWidth = 88
 )
 
 // Column-width defaults for the model table.
 const (
 	defaultNameColW = 36
+	runtimeColW     = 11 // "llama.cpp", "vllm"
 	sizeColW        = 9
 	modTimeColW     = 17
-	paramColW       = 18
 	maxNameColW     = 72
 	minPathColW     = 14
 	maxPathColW     = 400

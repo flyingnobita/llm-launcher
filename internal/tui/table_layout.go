@@ -7,9 +7,10 @@ import (
 	btable "github.com/flyingnobita/llml/internal/tui/btable"
 )
 
-// tableColumns computes per-column widths from the terminal width and the
-// current file list. Name expands to fit content (capped at maxNameColW);
-// Path takes remaining space after fixed columns.
+// tableColumns computes per-column widths from the inner body width (usable
+// width inside app horizontal padding) and the current file list. Name expands
+// to fit content (capped at maxNameColW); Path takes remaining space after fixed
+// columns (Name, Runtime, Size, Last modified).
 func tableColumns(totalWidth int, files []llamacpp.ModelFile) []btable.Column {
 	if totalWidth < minTerminalWidth {
 		totalWidth = minTerminalWidth
@@ -31,7 +32,7 @@ func tableColumns(totalWidth int, files []llamacpp.ModelFile) []btable.Column {
 			nameW = maxNameColW
 		}
 	}
-	fixed := nameW + sizeColW + modTimeColW + paramColW + colPaddingExtra
+	fixed := nameW + runtimeColW + sizeColW + modTimeColW + colPaddingExtra
 	pathW := totalWidth - fixed
 	if pathW < minPathColW {
 		pathW = minPathColW
@@ -45,21 +46,22 @@ func tableColumns(totalWidth int, files []llamacpp.ModelFile) []btable.Column {
 
 	return []btable.Column{
 		{Title: "Name", Width: nameW},
+		{Title: "Runtime", Width: runtimeColW},
 		{Title: "Path", Width: pathW},
 		{Title: "Size", Width: sizeColW},
 		{Title: "Last modified", Width: modTimeColW},
-		{Title: "Parameters", Width: paramColW},
 	}
 }
 
 // tableContentMinWidth approximates the minimum row width so the outer
-// viewport knows how wide to make the table (bubbles/table pads each cell).
+// viewport knows how wide to make the table. Each cell uses PaddingRight(1) in
+// styles.table, so rendered width is sum(column widths) plus one column per cell.
 func tableContentMinWidth(cols []btable.Column) int {
 	sum := 0
 	for _, c := range cols {
 		sum += c.Width
 	}
-	return sum + 4*len(cols)
+	return sum + len(cols)
 }
 
 // buildTableRows converts ModelFile entries into display rows using the
@@ -72,10 +74,10 @@ func buildTableRows(files []llamacpp.ModelFile, cols []btable.Column) []btable.R
 	for i, f := range files {
 		rows[i] = btable.Row{
 			llamacpp.TruncateRunes(f.Name, cols[0].Width-1),
-			llamacpp.TruncateRunes(llamacpp.FormatModelFolderDisplay(f.Path), cols[1].Width-1),
+			llamacpp.TruncateRunes(llamacpp.FormatRuntimeLabel(f.Backend), cols[1].Width-1),
+			llamacpp.TruncateRunes(llamacpp.FormatModelFolderDisplay(f.Path), cols[2].Width-1),
 			llamacpp.FormatSize(f.Size),
 			llamacpp.FormatModTime(f.ModTime),
-			llamacpp.TruncateRunes(f.Parameters, cols[4].Width-1),
 		}
 	}
 	return rows

@@ -16,6 +16,14 @@ const (
 	paramFocusArgs
 )
 
+// paramConfirmDelete* values for Model.paramConfirmDelete (0 = none).
+const (
+	paramConfirmNone = iota
+	paramConfirmProfile
+	paramConfirmEnvRow
+	paramConfirmArgRow
+)
+
 const (
 	paramEditNone = iota
 	paramEditEnvLine
@@ -113,7 +121,9 @@ func (m Model) openParamPanel() (Model, tea.Cmd) {
 		return m, nil
 	}
 	m.paramPanelOpen = true
+	m.paramConfirmDelete = paramConfirmNone
 	m.paramModelPath = filepath.Clean(p)
+	m.paramModelDisplayName = modelDisplayNameForPath(m)
 	m.lastRunNote = ""
 	m.paramEditKind = paramEditNone
 	m.paramEditInput.Blur()
@@ -131,16 +141,24 @@ func (m Model) openParamPanel() (Model, tea.Cmd) {
 	m.paramProfileIndex = clampInt(ent.ActiveIndex, 0, max(0, len(m.paramProfiles)-1))
 	m.paramFocus = paramFocusProfiles
 	m.loadCurrentProfileIn()
-	w := m.innerWidth() - 8
+	m.paramEditInput.Width = m.paramEditInnerWidth()
+	return m, nil
+}
+
+// paramEditInnerWidth is the textinput width for profile/env/argv line edits in the params modal.
+func (m Model) paramEditInnerWidth() int {
+	cw := m.paramPanelContentWidth()
+	frame := m.styles.paramSectionBox.GetHorizontalFrameSize()
+	w := cw - frame
 	if w < 32 {
 		w = 32
 	}
-	m.paramEditInput.Width = w
-	return m, nil
+	return w
 }
 
 func (m Model) closeParamPanel() Model {
 	m.paramPanelOpen = false
+	m.paramConfirmDelete = paramConfirmNone
 	m.paramEditKind = paramEditNone
 	m.paramEditInput.Blur()
 	m.paramEditInput.SetValue("")
@@ -148,7 +166,26 @@ func (m Model) closeParamPanel() Model {
 	m.paramArgs = nil
 	m.paramProfiles = nil
 	m.paramModelPath = ""
+	m.paramModelDisplayName = ""
 	return m
+}
+
+// modelDisplayNameForPath returns the table display name for the row whose path is selected, or a basename fallback.
+func modelDisplayNameForPath(m Model) string {
+	p := m.SelectedPath()
+	if p == "" {
+		return ""
+	}
+	p = filepath.Clean(p)
+	for i := range m.files {
+		if filepath.Clean(m.files[i].Path) == p {
+			if n := strings.TrimSpace(m.files[i].Name); n != "" {
+				return n
+			}
+			break
+		}
+	}
+	return filepath.Base(p)
 }
 
 func (m Model) focusParamEdit() (Model, tea.Cmd) {
@@ -168,6 +205,30 @@ func (m Model) paramArgsLen() int {
 func (m Model) commitParamLineEdit() Model {
 	line := m.paramEditInput.Value()
 	kind := m.paramEditKind
+
+	switch kind {
+	case paramEditEnvLine:
+		if strings.TrimSpace(line) == "" {
+			m = m.cancelParamLineEdit()
+			if m.paramEnvCursor >= 0 && m.paramEnvCursor < m.paramEnvLen() {
+				e := m.paramEnv[m.paramEnvCursor]
+				if strings.TrimSpace(e.Key) == "" && strings.TrimSpace(e.Value) == "" {
+					m = m.deleteParamRow()
+				}
+			}
+			return m
+		}
+	case paramEditArgLine:
+		if strings.TrimSpace(line) == "" {
+			m = m.cancelParamLineEdit()
+			if m.paramArgsCursor >= 0 && m.paramArgsCursor < m.paramArgsLen() &&
+				strings.TrimSpace(m.paramArgs[m.paramArgsCursor]) == "" {
+				m = m.deleteParamRow()
+			}
+			return m
+		}
+	}
+
 	m.paramEditKind = paramEditNone
 	m = m.blurParamEdit()
 	switch kind {
@@ -324,7 +385,8 @@ func (m Model) moveProfile(delta int) Model {
 	return m
 }
 
-func (m Model) saveParamPanel() (Model, tea.Cmd) {
+// persistParamPanel writes the current parameter profiles to disk without closing the panel.
+func (m Model) persistParamPanel() (Model, tea.Cmd) {
 	(&m).syncCurrentProfileOut()
 	ent := modelEntry{
 		Profiles:    copyProfiles(m.paramProfiles),
@@ -335,15 +397,41 @@ func (m Model) saveParamPanel() (Model, tea.Cmd) {
 		return m, nil
 	}
 	m.lastRunNote = ""
-	m = m.closeParamPanel()
 	return m, nil
+}
+
+// closeParamPanelWithPersist saves first; on error the panel stays open and lastRunNote is set.
+func (m Model) closeParamPanelWithPersist() (Model, tea.Cmd) {
+	m, cmd := m.persistParamPanel()
+	if m.lastRunNote != "" {
+		return m, cmd
+	}
+	m = m.closeParamPanel()
+	return m, cmd
 }
 
 // updateParamPanelKey handles keys while the parameters panel is open.
 func (m Model) updateParamPanelKey(msg tea.KeyMsg) (Model, tea.Cmd) {
-	if msg.String() == "ctrl+c" {
-		return m, tea.Quit
+	if m.paramConfirmDelete != paramConfirmNone {
+		switch msg.String() {
+		case "y", "Y":
+			k := m.paramConfirmDelete
+			m.paramConfirmDelete = paramConfirmNone
+			switch k {
+			case paramConfirmProfile:
+				m = m.deleteProfile()
+			case paramConfirmEnvRow, paramConfirmArgRow:
+				m = m.deleteParamRow()
+			}
+			return m.persistParamPanel()
+		case "n", "N":
+			m.paramConfirmDelete = paramConfirmNone
+			return m, nil
+		default:
+			return m, nil
+		}
 	}
+
 	if m.paramEditKind != paramEditNone {
 		switch msg.String() {
 		case "esc":
@@ -351,15 +439,15 @@ func (m Model) updateParamPanelKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 			return m, nil
 		case "enter":
 			m = m.commitParamLineEdit()
-			return m, nil
+			return m.persistParamPanel()
 		case "tab":
 			m = m.commitParamLineEdit()
 			m = m.cycleParamFocus(1)
-			return m, nil
+			return m.persistParamPanel()
 		case "shift+tab":
 			m = m.commitParamLineEdit()
 			m = m.cycleParamFocus(-1)
-			return m, nil
+			return m.persistParamPanel()
 		default:
 			var cmd tea.Cmd
 			m.paramEditInput, cmd = m.paramEditInput.Update(msg)
@@ -368,12 +456,12 @@ func (m Model) updateParamPanelKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	}
 
 	switch msg.String() {
-	case "esc":
-		m.lastRunNote = ""
-		m = m.closeParamPanel()
-		return m, nil
-	case "s":
-		return m.saveParamPanel()
+	case "esc", "q":
+		return m.closeParamPanelWithPersist()
+	case "t":
+		var cmd tea.Cmd
+		m, cmd = m.cycleTheme()
+		return m, cmd
 	case "tab":
 		m = m.cycleParamFocus(1)
 		return m, nil
@@ -384,6 +472,7 @@ func (m Model) updateParamPanelKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		switch m.paramFocus {
 		case paramFocusProfiles:
 			m = m.moveProfile(-1)
+			return m.persistParamPanel()
 		case paramFocusEnv:
 			if m.paramEnvCursor > 0 {
 				m.paramEnvCursor--
@@ -398,6 +487,7 @@ func (m Model) updateParamPanelKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		switch m.paramFocus {
 		case paramFocusProfiles:
 			m = m.moveProfile(1)
+			return m.persistParamPanel()
 		case paramFocusEnv:
 			if m.paramEnvCursor < m.paramEnvLen()-1 {
 				m.paramEnvCursor++
@@ -411,51 +501,122 @@ func (m Model) updateParamPanelKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case "n":
 		if m.paramFocus == paramFocusProfiles {
 			m = m.addProfile()
+			return m.persistParamPanel()
 		}
 		return m, nil
 	case "a":
 		if m.paramFocus == paramFocusEnv || m.paramFocus == paramFocusArgs {
-			return m.addParamRow()
+			var cmd tea.Cmd
+			m, cmd = m.addParamRow()
+			m, pcmd := m.persistParamPanel()
+			return m, tea.Batch(cmd, pcmd)
 		}
 		return m, nil
 	case "d":
 		switch m.paramFocus {
 		case paramFocusProfiles:
-			m = m.deleteProfile()
-		case paramFocusEnv, paramFocusArgs:
-			m = m.deleteParamRow()
+			if len(m.paramProfiles) <= 1 {
+				return m, nil
+			}
+			m.paramConfirmDelete = paramConfirmProfile
+			return m, nil
+		case paramFocusEnv:
+			if m.paramEnvLen() == 0 {
+				return m, nil
+			}
+			m.paramConfirmDelete = paramConfirmEnvRow
+			return m, nil
+		case paramFocusArgs:
+			if m.paramArgsLen() == 0 {
+				return m, nil
+			}
+			m.paramConfirmDelete = paramConfirmArgRow
+			return m, nil
+		}
+		return m, nil
+	case "r", "R":
+		if m.paramFocus == paramFocusProfiles {
+			return m.startProfileNameEdit()
 		}
 		return m, nil
 	case "enter":
-		switch m.paramFocus {
-		case paramFocusProfiles:
-			return m.startProfileNameEdit()
-		default:
+		if m.paramFocus == paramFocusEnv || m.paramFocus == paramFocusArgs {
 			return m.startParamLineEdit()
 		}
+		return m, nil
 	default:
 		return m, nil
 	}
 }
 
 func (m Model) paramPanelView() string {
-	iw := m.innerWidth()
-	maxLine := iw - 8
+	cw := m.paramPanelContentWidth()
+	maxLine := cw
 	if maxLine < 24 {
 		maxLine = 24
 	}
-
-	sectionPrefix := func(on bool) string {
-		if on {
-			return "› "
-		}
-		return "  "
+	secBox := m.styles.paramSectionBox
+	maxSec := cw - secBox.GetHorizontalFrameSize()
+	if maxSec < 24 {
+		maxSec = 24
 	}
 
-	title := portConfigTitleStyle.Render("Parameters — " + m.paramModelPath)
+	title := m.modalTitleRow(cw, m.styles.portConfigTitle, "Parameters — "+m.paramModelDisplayName)
 	rows := []string{title, ""}
 
-	rows = append(rows, bodyStyle.Render(sectionPrefix(m.paramFocus == paramFocusProfiles)+"Parameter profiles (↑/↓ · n new · d delete · enter rename)"))
+	if k := m.paramConfirmDelete; k != paramConfirmNone {
+		confirmBox := m.styles.paramConfirmDialog
+		confirmInner := cw - confirmBox.GetHorizontalFrameSize()
+		if confirmInner < 24 {
+			confirmInner = 24
+		}
+		var confirmRows []string
+		switch k {
+		case paramConfirmProfile:
+			pName := ""
+			if m.paramProfileIndex >= 0 && m.paramProfileIndex < len(m.paramProfiles) {
+				pName = m.paramProfiles[m.paramProfileIndex].Name
+			}
+			if pName == "" {
+				pName = "(unnamed)"
+			}
+			nameLine := lipgloss.JoinHorizontal(lipgloss.Top,
+				m.styles.body.Render("  "),
+				m.styles.paramProfileName.Render(truncateParamLine(pName, confirmInner-2)),
+			)
+			confirmRows = []string{
+				m.styles.body.Render("Delete this parameter profile?"),
+				nameLine,
+			}
+		case paramConfirmEnvRow:
+			line := ""
+			if m.paramEnvCursor >= 0 && m.paramEnvCursor < m.paramEnvLen() {
+				line = formatEnvVar(m.paramEnv[m.paramEnvCursor])
+			}
+			confirmRows = []string{
+				m.styles.body.Render("Delete this environment variable line?"),
+				m.styles.body.Render("  " + truncateParamLine(line, max(confirmInner-2, 8))),
+			}
+		case paramConfirmArgRow:
+			line := ""
+			if m.paramArgsCursor >= 0 && m.paramArgsCursor < m.paramArgsLen() {
+				line = m.paramArgs[m.paramArgsCursor]
+			}
+			confirmRows = []string{
+				m.styles.body.Render("Delete this extra argument line?"),
+				m.styles.body.Render("  " + truncateParamLine(line, max(confirmInner-2, 8))),
+			}
+		}
+		if len(confirmRows) > 0 {
+			confirmRows = append(confirmRows, "",
+				m.styles.footer.Render("y: yes · n: no"),
+			)
+			rows = append(rows, confirmBox.Width(cw).Render(lipgloss.JoinVertical(lipgloss.Left, confirmRows...)))
+			rows = append(rows, "")
+		}
+	}
+
+	rows = append(rows, m.styles.body.Render("  Profiles"))
 	rows = append(rows, "")
 	for i := range m.paramProfiles {
 		name := m.paramProfiles[i].Name
@@ -471,63 +632,109 @@ func (m Model) paramPanelView() string {
 			if focused {
 				prefix = "› "
 			}
-			rows = append(rows, bodyStyle.Render(prefix+truncateParamLine(name, maxLine)))
+			pw := lipgloss.Width(prefix)
+			nameW := maxLine - pw
+			if nameW < 8 {
+				nameW = maxLine
+			}
+			row := lipgloss.JoinHorizontal(lipgloss.Top,
+				m.styles.body.Render(prefix),
+				m.styles.paramProfileName.Render(truncateParamLine(name, nameW)),
+			)
+			rows = append(rows, row)
 		}
 	}
 	if len(m.paramProfiles) == 0 {
-		rows = append(rows, bodyStyle.Render("  (none)"))
+		rows = append(rows, m.styles.body.Render("  (none)"))
 	}
 
 	rows = append(rows, "")
-	rows = append(rows, bodyStyle.Render(sectionPrefix(m.paramFocus == paramFocusEnv)+"Environment (KEY=value)"))
-	rows = append(rows, "")
+	var detailRows []string
+	const sectionHeadingIndent = "  "
+	envHeading := "Environment Variables (e.g. PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True)"
+	detailRows = append(detailRows, lipgloss.JoinHorizontal(lipgloss.Top,
+		m.styles.body.Render(sectionHeadingIndent),
+		m.styles.paramSectionHeading.Render(truncateParamLine(envHeading, maxSec-lipgloss.Width(sectionHeadingIndent))),
+	))
+	detailRows = append(detailRows, "")
 	if m.paramEnvLen() == 0 && !(m.paramFocus == paramFocusEnv && m.paramEditKind == paramEditEnvLine) {
-		rows = append(rows, bodyStyle.Render("  (none) — a add"))
+		prefix := "  "
+		if m.paramFocus == paramFocusEnv {
+			prefix = "› "
+		}
+		detailRows = append(detailRows, m.styles.body.Render(prefix+"(none)"))
 	}
 	for i := range m.paramEnv {
 		line := formatEnvVar(m.paramEnv[i])
 		focused := m.paramFocus == paramFocusEnv && m.paramEnvCursor == i
 		switch {
 		case focused && m.paramEditKind == paramEditEnvLine:
-			rows = append(rows, m.paramEditInput.View())
+			detailRows = append(detailRows, m.paramEditInput.View())
 		default:
 			prefix := "  "
 			if focused {
 				prefix = "› "
 			}
-			rows = append(rows, bodyStyle.Render(prefix+truncateParamLine(line, maxLine)))
+			detailRows = append(detailRows, m.styles.body.Render(prefix+truncateParamLine(line, maxSec)))
 		}
 	}
 
-	rows = append(rows, "")
-	rows = append(rows, bodyStyle.Render(sectionPrefix(m.paramFocus == paramFocusArgs)+"Extra arguments (flag+value on one line when possible; or one token per line)"))
-	rows = append(rows, "")
+	detailRows = append(detailRows, "")
+
+	argHeading := "Extra arguments (e.g. --max-model-len 131072)"
+	detailRows = append(detailRows, lipgloss.JoinHorizontal(lipgloss.Top,
+		m.styles.body.Render(sectionHeadingIndent),
+		m.styles.paramSectionHeading.Render(truncateParamLine(argHeading, maxSec-lipgloss.Width(sectionHeadingIndent))),
+	))
+	detailRows = append(detailRows, "")
 	if m.paramArgsLen() == 0 && !(m.paramFocus == paramFocusArgs && m.paramEditKind == paramEditArgLine) {
-		rows = append(rows, bodyStyle.Render("  (none) — a add"))
+		prefix := "  "
+		if m.paramFocus == paramFocusArgs {
+			prefix = "› "
+		}
+		detailRows = append(detailRows, m.styles.body.Render(prefix+"(none)"))
 	}
 	for i := range m.paramArgs {
 		line := m.paramArgs[i]
 		focused := m.paramFocus == paramFocusArgs && m.paramArgsCursor == i
 		switch {
 		case focused && m.paramEditKind == paramEditArgLine:
-			rows = append(rows, m.paramEditInput.View())
+			detailRows = append(detailRows, m.paramEditInput.View())
 		default:
 			prefix := "  "
 			if focused {
 				prefix = "› "
 			}
-			rows = append(rows, bodyStyle.Render(prefix+truncateParamLine(line, maxLine)))
+			detailRows = append(detailRows, m.styles.body.Render(prefix+truncateParamLine(line, maxSec)))
 		}
 	}
+	rows = append(rows, secBox.Width(cw).Render(lipgloss.JoinVertical(lipgloss.Left, detailRows...)))
 
-	rows = append(rows, "",
-		footerStyle.Render("tab sections · ↑/↓ · a add row · d delete · enter edit · n new parameter profile · s save · esc cancel · ctrl+c quit"),
-	)
+	var footerHelp string
+	switch m.paramFocus {
+	case paramFocusProfiles:
+		footerHelp = "tab: sections · hjkl: nav · n: new · d: delete · r: rename · esc/q: back"
+	case paramFocusEnv:
+		if m.paramEnvLen() == 0 {
+			footerHelp = "tab: sections · hjkl: nav · a: add row · d: delete · esc/q: back"
+		} else {
+			footerHelp = "tab: sections · hjkl: nav · enter: edit · a: add row · d: delete · esc/q: back"
+		}
+	case paramFocusArgs:
+		if m.paramArgsLen() == 0 {
+			footerHelp = "tab: sections · hjkl: nav · a: add row · d: delete · esc/q: back"
+		} else {
+			footerHelp = "tab: sections · hjkl: nav · enter: edit · a: add row · d: delete · esc/q: back"
+		}
+	}
+	if m.paramConfirmDelete == paramConfirmNone {
+		rows = append(rows, "", m.styles.footer.Render(footerHelp))
+	}
 	block := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	if m.lastRunNote != "" {
-		block = lipgloss.JoinVertical(lipgloss.Left, block, "", errorStyle.Render(m.lastRunNote))
+		block = lipgloss.JoinVertical(lipgloss.Left, block, "", m.styles.errLine.Render(m.lastRunNote))
 	}
-	framed := portConfigBoxStyle.Render(block)
+	framed := m.styles.portConfigBox.Render(block)
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, framed)
 }
 

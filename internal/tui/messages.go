@@ -21,3 +21,6 @@ type runServerErrMsg struct {
 type llamaServerExitedMsg struct {
 	err error
 }
+
+// themeToastClearMsg clears the transient theme toast (after tea.Tick).
+type themeToastClearMsg struct{}

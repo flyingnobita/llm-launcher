@@ -11,16 +11,17 @@ import (
 // Update implements tea.Model.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case themeToastClearMsg:
+		m.themeToast = ""
+		m = m.layoutTable()
+		return m, nil
+
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
 		m = m.layoutTable()
 		if m.paramPanelOpen {
-			w := m.innerWidth() - 8
-			if w < 32 {
-				w = 32
-			}
-			m.paramEditInput.Width = w
+			m.paramEditInput.Width = m.paramEditInnerWidth()
 		}
 		return m, nil
 
@@ -73,6 +74,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			return m.openParamPanel()
+		}
+		if key.Matches(msg, m.keys.ToggleTheme) {
+			var cmd tea.Cmd
+			m, cmd = m.cycleTheme()
+			return m, cmd
 		}
 		if key.Matches(msg, m.keys.Refresh) {
 			m.loading = true

@@ -9,16 +9,18 @@ type KeyMap struct {
 	RunServer   key.Binding
 	ScrollLeft  key.Binding
 	ScrollRight key.Binding
+	Nav         key.Binding
 	CopyPath    key.Binding
 	ConfigPort  key.Binding
 	Parameters  key.Binding
+	ToggleTheme key.Binding
 }
 
 // DefaultKeyMap returns the default global shortcuts.
 func DefaultKeyMap() KeyMap {
 	return KeyMap{
 		Quit: key.NewBinding(
-			key.WithKeys("q", "ctrl+c"),
+			key.WithKeys("q"),
 			key.WithHelp("q", "quit"),
 		),
 		Refresh: key.NewBinding(
@@ -31,11 +33,15 @@ func DefaultKeyMap() KeyMap {
 		),
 		ScrollLeft: key.NewBinding(
 			key.WithKeys("left", "h"),
-			key.WithHelp("←/h", "scroll"),
+			key.WithHelp("h/l", "scroll"),
 		),
 		ScrollRight: key.NewBinding(
 			key.WithKeys("right", "l"),
-			key.WithHelp("→/l", "scroll"),
+			key.WithHelp("h/l", "scroll"),
+		),
+		Nav: key.NewBinding(
+			key.WithKeys("up", "down", "left", "right", "j", "k", "h", "l"),
+			key.WithHelp("hjkl", "nav"),
 		),
 		CopyPath: key.NewBinding(
 			key.WithKeys("enter"),
@@ -49,17 +55,21 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("p"),
 			key.WithHelp("p", "param profiles"),
 		),
+		ToggleTheme: key.NewBinding(
+			key.WithKeys("t"),
+			key.WithHelp("t", "theme"),
+		),
 	}
 }
 
 // ShortHelp satisfies key.KeyMap (optional; use for help overlay later).
 func (k KeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Refresh, k.RunServer, k.ConfigPort, k.Parameters, k.ScrollLeft, k.Quit}
+	return []key.Binding{k.Refresh, k.RunServer, k.ConfigPort, k.Parameters, k.ToggleTheme, k.Nav, k.Quit}
 }
 
 // FullHelp satisfies key.KeyMap.
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Refresh, k.RunServer, k.ConfigPort, k.Parameters, k.Quit},
+		{k.Refresh, k.RunServer, k.ConfigPort, k.Parameters, k.ToggleTheme, k.Quit},
 	}
 }

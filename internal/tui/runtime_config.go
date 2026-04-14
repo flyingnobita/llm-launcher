@@ -179,9 +179,6 @@ func (m Model) commitRuntimeConfig() (Model, tea.Cmd) {
 
 // updateRuntimeConfigKey handles keys while the runtime env editor is open.
 func (m Model) updateRuntimeConfigKey(msg tea.KeyMsg) (Model, tea.Cmd) {
-	if msg.String() == "ctrl+c" {
-		return m, tea.Quit
-	}
 	switch msg.String() {
 	case "esc":
 		m.lastRunNote = ""
