@@ -6,8 +6,8 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/mattn/go-runewidth"
 	"github.com/flyingnobita/llml/internal/llamacpp"
+	"github.com/mattn/go-runewidth"
 )
 
 func TestLayoutTable_wideTerminalFitsViewport(t *testing.T) {
