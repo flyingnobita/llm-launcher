@@ -288,7 +288,7 @@ func (m Model) mainAppPlacedView() string {
 	case m.loadErr != nil:
 		body = m.styles.errLine.Render("Error: " + m.loadErr.Error())
 	case len(m.files) == 0:
-		body = m.styles.body.Render("No GGUF or safetensors models found. Set HUGGINGFACE_HUB_CACHE or HF_HOME if your Hub cache is non-default; add paths via LLM_LAUNCH_LLAMACPP_PATHS or place models under ~/models, ~/.cache/huggingface/hub, etc.")
+		body = m.styles.body.Render("No GGUF or safetensors models found. Set HUGGINGFACE_HUB_CACHE or HF_HOME if your Hub cache is non-default; add paths via LLML_MODEL_PATHS or place models under ~/models, ~/.cache/huggingface/hub, etc.")
 	default:
 		m.hscroll.SetContent(m.tbl.View())
 		th := m.tableBodyH

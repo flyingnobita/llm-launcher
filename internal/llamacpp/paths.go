@@ -6,7 +6,9 @@ import (
 	"strings"
 )
 
-const envExtraPaths = "LLM_LAUNCH_LLAMACPP_PATHS"
+const (
+	envModelPaths = "LLML_MODEL_PATHS"
+)
 
 // huggingFaceHubCache returns the Hugging Face Hub "models--*" directory root.
 // It respects the same env vars as huggingface_hub: HUGGINGFACE_HUB_CACHE, then HF_HOME/hub.
@@ -58,7 +60,7 @@ func MergeSearchRoots(extra []string, skipDefaults bool) []string {
 			add(p)
 		}
 	}
-	if v := os.Getenv(envExtraPaths); v != "" {
+	if v := os.Getenv(envModelPaths); v != "" {
 		for _, part := range strings.Split(v, ",") {
 			part = strings.TrimSpace(part)
 			if part != "" {

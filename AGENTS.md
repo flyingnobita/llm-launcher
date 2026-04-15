@@ -71,7 +71,7 @@ scripts/             # gofmt-check.sh, precommit-docs-fix.sh
 | `VLLM_VENV`                         | Optional Python venv root; `R` sources `bin/activate` before `vllm` (Unix)                                     |
 | `LLAMA_SERVER_PORT`                 | TCP port for `llama-server` and `/health` probe (default 8080)                                                 |
 | `VLLM_SERVER_PORT`                  | TCP port for `vllm serve` (default 8000)                                                                       |
-| `LLM_LAUNCH_LLAMACPP_PATHS`         | Extra model search roots (comma-separated)                                                                     |
+| `LLML_MODEL_PATHS`                  | Extra model search roots (comma-separated)                                                                     |
 | `HUGGINGFACE_HUB_CACHE` / `HF_HOME` | Hugging Face hub cache location                                                                                |
 | `LLML_THEME`                        | Initial TUI palette (`dark` / `light` / `auto`); **`t`** cycles while running (not in runtime `c` text fields) |
 
