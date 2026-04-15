@@ -168,6 +168,14 @@ func splitServerBodyHeights(total int) (tableH, logH int) {
 	return tableH, logH
 }
 
+func tableRowAreaHeight(contentAreaH int) int {
+	if contentAreaH <= 1 {
+		return 1
+	}
+	// bubbles/table adds a header row above body rows.
+	return contentAreaH - 1
+}
+
 func (m Model) layoutTable() Model {
 	w := m.width
 	if w < minTerminalWidth {
@@ -213,26 +221,40 @@ func (m Model) layoutTable() Model {
 	previewH := m.launchPreviewLineCount(innerW)
 
 	setHeights := func(bodyH int) {
+		tableFrameV := m.hscroll.Style.GetVerticalFrameSize()
+		logFrameV := m.serverViewport.Style.GetVerticalFrameSize()
 		if m.serverRunning {
 			rest := bodyH - previewH
 			if rest < 2 {
 				// Need at least one line each for table and log; may exceed bodyH on tiny terminals.
 				rest = 2
 			}
-			tableH, logH := splitServerBodyHeights(rest)
-			m.tbl.SetHeight(tableH)
-			m.serverViewport.SetHeight(logH)
+			tablePaneH, logPaneH := splitServerBodyHeights(rest)
+			tableContentH := tablePaneH - tableFrameV
+			if tableContentH < 1 {
+				tableContentH = 1
+			}
+			logContentH := logPaneH - logFrameV
+			if logContentH < 1 {
+				logContentH = 1
+			}
+			m.tbl.SetHeight(tableRowAreaHeight(tableContentH))
+			m.serverViewport.SetHeight(logContentH)
 			m.serverViewport.SetWidth(innerW)
 			if m.serverViewport.TotalLineCount() > m.serverViewport.VisibleLineCount() {
 				m.serverViewport.SetWidth(innerW - 1)
 			}
-			m.serverViewportH = logH
+			m.serverViewportH = logContentH
 		} else {
-			th := bodyH - previewH
-			if th < 1 {
-				th = 1
+			tablePaneH := bodyH - previewH
+			if tablePaneH < 1 {
+				tablePaneH = 1
 			}
-			m.tbl.SetHeight(th)
+			tableContentH := tablePaneH - tableFrameV
+			if tableContentH < 1 {
+				tableContentH = 1
+			}
+			m.tbl.SetHeight(tableRowAreaHeight(tableContentH))
 			m.serverViewport.SetWidth(innerW)
 			m.serverViewport.SetHeight(1)
 			m.serverViewportH = 0

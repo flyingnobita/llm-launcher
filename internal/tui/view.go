@@ -122,12 +122,12 @@ func footerHelpLine(m Model) string {
 		// Table focused: same global shortcuts as the idle view except run (R / ctrl+R) while a server is up.
 		parts := []string{
 			FooterHintRefresh,
+			FooterNavHint,
 			FooterHintConfigPort,
 			FooterHintParameters,
 			FooterHintSort,
 			FooterHintToggleTheme,
 			FooterHintCopyPath,
-			FooterNavHint,
 			FooterSplitTabToLog,
 			FooterSplitStopServer,
 			fmt.Sprintf("%d×%d", m.width, m.height),
@@ -136,6 +136,7 @@ func footerHelpLine(m Model) string {
 	}
 	parts := []string{
 		FooterHintRefresh,
+		FooterNavHint,
 		FooterHintRunSplit,
 		FooterHintRunFullscreen,
 		FooterHintConfigPort,
@@ -143,7 +144,6 @@ func footerHelpLine(m Model) string {
 		FooterHintSort,
 		FooterHintToggleTheme,
 		FooterHintQuit,
-		FooterNavHint,
 		FooterHintCopyPath,
 		fmt.Sprintf("%d×%d", m.width, m.height),
 	}
@@ -352,7 +352,29 @@ func (m Model) mainAppPlacedView() string {
 	block := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	framed := m.styles.app.Render(block)
 
-	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Top, framed)
+	placed := lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Top, framed)
+	return clampRenderedHeightKeepTopBottom(placed, m.height)
+}
+
+func clampRenderedHeightKeepTopBottom(s string, maxH int) string {
+	if maxH <= 0 {
+		return s
+	}
+	lines := strings.Split(s, "\n")
+	if len(lines) <= maxH {
+		return s
+	}
+	topKeep := maxH / 2
+	if topKeep < 1 {
+		topKeep = 1
+	}
+	bottomKeep := maxH - topKeep
+	if bottomKeep < 1 {
+		bottomKeep = 1
+	}
+	out := append([]string{}, lines[:topKeep]...)
+	out = append(out, lines[len(lines)-bottomKeep:]...)
+	return strings.Join(out, "\n")
 }
 
 // View implements tea.Model.

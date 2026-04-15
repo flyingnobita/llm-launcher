@@ -6,6 +6,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/mattn/go-runewidth"
 	"github.com/flyingnobita/llml/internal/llamacpp"
 )
 
@@ -108,6 +109,87 @@ func TestViewAltScreen(t *testing.T) {
 	if !v.AltScreen {
 		t.Fatal("expected View().AltScreen = true for full-screen TUI")
 	}
+}
+
+// TestMainViewShowsTitleAndFooterNavHint ensures the primary TUI frame remains
+// fully visible in a common terminal size, including the navigation hint bar.
+func TestMainViewShowsTitleAndFooterNavHint(t *testing.T) {
+	m := New()
+	m.width = minTerminalWidth
+	m.height = 24
+	m.loading = false
+	m.files = []llamacpp.ModelFile{
+		{Backend: llamacpp.BackendLlama, Path: "/a.gguf", Name: "a", Size: 1, ModTime: time.Unix(0, 0)},
+		{Backend: llamacpp.BackendLlama, Path: "/b.gguf", Name: "b", Size: 1, ModTime: time.Unix(0, 0)},
+	}
+	m = m.layoutTable()
+
+	content := visibleViewport(m.View().Content, m.width, m.height)
+	if !strings.Contains(content, appTitle) {
+		t.Fatalf("missing app title in normal view (len=%d)", len(content))
+	}
+	if !strings.Contains(content, FooterNavHint) {
+		t.Fatalf("missing footer navigation hint in normal view (want %q)", FooterNavHint)
+	}
+}
+
+func TestSplitViewShowsTitleAndFooterHints(t *testing.T) {
+	m := New()
+	m.width = 100
+	m.height = 24
+	m.loading = false
+	m.serverRunning = true
+	m.splitLogFocused = false
+	m.files = []llamacpp.ModelFile{
+		{Backend: llamacpp.BackendLlama, Path: "/a.gguf", Name: "a", Size: 1, ModTime: time.Unix(0, 0)},
+		{Backend: llamacpp.BackendLlama, Path: "/b.gguf", Name: "b", Size: 1, ModTime: time.Unix(0, 0)},
+	}
+	for i := 0; i < 30; i++ {
+		m = m.appendServerLogLine("log line")
+	}
+	m = m.layoutTable()
+
+	content := visibleViewport(m.View().Content, m.width, m.height)
+	if !strings.Contains(content, appTitle) {
+		t.Fatalf("missing app title in split view (len=%d)", len(content))
+	}
+	if !strings.Contains(content, FooterNavHint) {
+		t.Fatalf("missing footer navigation hint in split view (want %q)", FooterNavHint)
+	}
+}
+
+func visibleViewport(content string, width, height int) string {
+	lines := strings.Split(content, "\n")
+	if height > 0 && len(lines) > height {
+		lines = lines[len(lines)-height:]
+	}
+	for i, line := range lines {
+		lines[i] = trimToColumns(line, width)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func trimToColumns(s string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	if runewidth.StringWidth(s) <= width {
+		return s
+	}
+	var b strings.Builder
+	used := 0
+	for _, r := range s {
+		w := runewidth.RuneWidth(r)
+		if w <= 0 {
+			w = 1
+		}
+		if used+w > width {
+			break
+		}
+		b.WriteRune(r)
+		used += w
+	}
+	return b.String()
 }
 
 // TestSelectedStyleHasBackground verifies that the table Selected style carries
