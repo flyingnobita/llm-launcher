@@ -9,6 +9,7 @@ VLLM_SERVER_PORT = "9002"
 
 [tools]
 go = "latest"
+node = "lts"
 "pipx:pre-commit" = "latest"
 
 [tasks]
