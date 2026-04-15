@@ -3,6 +3,10 @@
 [![Go](https://img.shields.io/github/go-mod/go-version/flyingnobita/llml)](go.mod)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+<p align="center">
+  <img src="assets/llml-screenshot.png" alt="LLM Launcher TUI screenshot" height="480">
+</p>
+
 **LLM Launcher** (`llml`) is a TUI for people who already have models on disk and are
 tired of reconstructing launch commands from shell history.
 
