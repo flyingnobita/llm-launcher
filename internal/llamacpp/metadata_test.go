@@ -11,6 +11,13 @@ func TestGgufParamsSummary_nonexistentPath(t *testing.T) {
 	}
 }
 
+func TestGGUFGeneralName_nonexistent(t *testing.T) {
+	_, err := GGUFGeneralName("/nonexistent/does-not-exist/model.gguf")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
 func TestTruncateMeta_shortUnchanged(t *testing.T) {
 	s := "short"
 	if got := truncateMeta(s, 48); got != s {
