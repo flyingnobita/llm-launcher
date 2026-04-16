@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -8,6 +9,16 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/flyingnobita/llml/internal/llamacpp"
 )
+
+func TestParseEnvLine_expandTilde(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	e := parseEnvLine("FOO=" + "~/bar")
+	want := filepath.Join(home, "bar")
+	if e.Key != "FOO" || e.Value != want {
+		t.Fatalf("got %+v want FOO=%q", e, want)
+	}
+}
 
 func TestParamPanelDeleteConfirm(t *testing.T) {
 	m := New()

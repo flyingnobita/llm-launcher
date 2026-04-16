@@ -8,6 +8,7 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/flyingnobita/llml/internal/llamacpp"
 )
 
 const (
@@ -49,7 +50,10 @@ func parseEnvLine(s string) EnvVar {
 	if i < 0 {
 		return EnvVar{Key: s, Value: ""}
 	}
-	return EnvVar{Key: strings.TrimSpace(s[:i]), Value: s[i+1:]}
+	key := strings.TrimSpace(s[:i])
+	val := strings.TrimSpace(s[i+1:])
+	val = llamacpp.ExpandTildePath(val)
+	return EnvVar{Key: key, Value: val}
 }
 
 func formatEnvVar(e EnvVar) string {
