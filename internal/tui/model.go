@@ -17,30 +17,31 @@ import (
 
 // Model is the root Bubble Tea model.
 type Model struct {
-	width             int
-	height            int
-	bodyInnerW        int
-	tableBodyH        int
-	tableLineWidth    int
-	tableNeedsHScroll bool // true when [tableContentMinWidth] exceeds inner body width; used for chrome + View (not rendered line width, so header glyphs cannot shift layout).
-	theme             Theme
-	themePick         int
-	themeToast        string
-	styles            styles
-	keys              KeyMap
-	tbl               btable.Model
-	hscroll           viewport.Model
-	files             []llamacpp.ModelFile
-	sortCol           int  // [tableSortCol*]; default Path ascending matches [llamacpp.Discover] order
-	sortDesc          bool // false = ascending
-	runtime           llamacpp.RuntimeInfo
-	runtimeScanned    bool
-	lastRunNote       string
-	loading           bool
-	loadErr           error
-	runtimeConfigOpen bool
-	runtimeFocus      int
-	runtimeInputs     [runtimeFieldCount]textinput.Model
+	width              int
+	height             int
+	bodyInnerW         int
+	tableBodyH         int
+	tableLineWidth     int
+	tableNeedsHScroll  bool // true when [tableContentMinWidth] exceeds inner body width; used for chrome + View (not rendered line width, so header glyphs cannot shift layout).
+	theme              Theme
+	themePick          int
+	themeToast         string
+	styles             styles
+	keys               KeyMap
+	tbl                btable.Model
+	hscroll            viewport.Model
+	files              []llamacpp.ModelFile
+	sortCol            int  // [tableSortCol*]; default Path ascending matches [llamacpp.Discover] order
+	sortDesc           bool // false = ascending
+	runtime            llamacpp.RuntimeInfo
+	runtimeScanned     bool
+	lastRunNote        string
+	lastRunNoteSuccess bool // true: lastRunNote is non-error feedback (e.g. copy confirmation)
+	loading            bool
+	loadErr            error
+	runtimeConfigOpen  bool
+	runtimeFocus       int
+	runtimeInputs      [runtimeFieldCount]textinput.Model
 
 	paramPanelOpen        bool
 	paramConfirmDelete    int // paramConfirm* (see param_panel.go); 0 = none
@@ -352,4 +353,25 @@ func (m Model) cycleTheme() (Model, tea.Cmd) {
 	m.themeToast = themeToastText(m.themePick, m.theme)
 	m = m.layoutTable()
 	return m, clearThemeToastAfterCmd()
+}
+
+// withLastRunError sets a red status line below the footer (see lastRunNoteView).
+func (m Model) withLastRunError(msg string) Model {
+	m.lastRunNote = msg
+	m.lastRunNoteSuccess = false
+	return m
+}
+
+// withLastRunSuccess sets a non-error status line below the footer.
+func (m Model) withLastRunSuccess(msg string) Model {
+	m.lastRunNote = msg
+	m.lastRunNoteSuccess = true
+	return m
+}
+
+// withLastRunCleared removes the footer status line.
+func (m Model) withLastRunCleared() Model {
+	m.lastRunNote = ""
+	m.lastRunNoteSuccess = false
+	return m
 }

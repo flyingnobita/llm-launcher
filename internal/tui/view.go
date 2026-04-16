@@ -108,6 +108,31 @@ func runtimePanelView(m Model, contentWidth int) string {
 
 const appTitle = "LLM Launcher"
 
+// lastRunNoteView renders lastRunNote as one styled line per newline-separated
+// segment (so multiple errors, e.g. missing llama-server and vllm, always show).
+func (m Model) lastRunNoteView() string {
+	if m.lastRunNote == "" {
+		return ""
+	}
+	lineStyle := m.styles.errLine
+	if m.lastRunNoteSuccess {
+		lineStyle = m.styles.body
+	}
+	parts := strings.Split(m.lastRunNote, "\n")
+	var lines []string
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		lines = append(lines, lineStyle.Render(p))
+	}
+	if len(lines) == 0 {
+		return ""
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
+}
+
 // footerHelpLine is the keyboard hint line (shared with layout height math).
 // Each binding uses "key: description"; bindings are separated by " · ".
 // The same convention is used for modal hint bars (runtime config, parameters).
@@ -181,7 +206,7 @@ func mainChromeLines(m Model, needsTableHBar bool, needsLogHBar bool) int {
 	n += lipgloss.Height(m.styles.footer.Render(footerHelpLine(m)))
 
 	if m.lastRunNote != "" {
-		n += lipgloss.Height(m.styles.errLine.Render(m.lastRunNote))
+		n += lipgloss.Height(m.lastRunNoteView())
 	}
 	return n
 }
@@ -347,7 +372,7 @@ func (m Model) mainAppPlacedView() string {
 	}
 	rows = append(rows, "", footer)
 	if m.lastRunNote != "" {
-		rows = append(rows, m.styles.errLine.Render(m.lastRunNote))
+		rows = append(rows, m.lastRunNoteView())
 	}
 	block := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	framed := m.styles.app.Render(block)
@@ -433,7 +458,7 @@ func (m Model) runtimeConfigModalBlock() string {
 	}
 	block := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	if m.lastRunNote != "" {
-		block = lipgloss.JoinVertical(lipgloss.Left, block, "", m.styles.errLine.Render(m.lastRunNote))
+		block = lipgloss.JoinVertical(lipgloss.Left, block, "", m.lastRunNoteView())
 	}
 	return m.styles.portConfigBox.Render(block)
 }

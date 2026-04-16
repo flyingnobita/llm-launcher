@@ -48,7 +48,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case runServerErrMsg:
-		m.lastRunNote = msg.err.Error()
+		m = m.withLastRunError(msg.err.Error())
 		return m, nil
 
 	case llamaServerExitedMsg:
@@ -61,18 +61,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.serverLogAlignWidth = 0
 			m.serverViewport.SetContent("")
 			if msg.err != nil {
-				m.lastRunNote = msg.err.Error()
+				m = m.withLastRunError(msg.err.Error())
 			} else {
-				m.lastRunNote = ""
+				m = m.withLastRunCleared()
 			}
 			m.tbl.Focus()
 			m = m.layoutTable()
 			return m, nil
 		}
 		if msg.err != nil {
-			m.lastRunNote = msg.err.Error()
+			m = m.withLastRunError(msg.err.Error())
 		} else {
-			m.lastRunNote = ""
+			m = m.withLastRunCleared()
 		}
 		return m, nil
 
@@ -125,7 +125,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if key.Matches(msg, m.keys.Parameters) {
 			if m.loading {
-				m.lastRunNote = "Wait for the model scan to finish."
+				m = m.withLastRunError("Wait for the model scan to finish.")
 				return m, nil
 			}
 			return m.openParamPanel()
@@ -138,22 +138,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if key.Matches(msg, m.keys.Refresh) {
 			m.loading = true
 			m.loadErr = nil
-			m.lastRunNote = ""
+			m = m.withLastRunCleared()
 			m.runtimeScanned = false
 			return m, startupCmd()
 		}
 		mode := runServerKeyMode(msg)
 		if mode != 0 {
 			if m.loading {
-				m.lastRunNote = "Wait for the model scan to finish."
+				m = m.withLastRunError("Wait for the model scan to finish.")
 				return m, nil
 			}
 			p, be := m.SelectedModel()
 			if p == "" {
-				m.lastRunNote = "Select a model row first."
+				m = m.withLastRunError("Select a model row first.")
 				return m, nil
 			}
-			m.lastRunNote = ""
+			m = m.withLastRunCleared()
 			params, _ := loadModelParamsForRun(p)
 			if mode == 2 {
 				if be == llamacpp.BackendVLLM {
@@ -175,9 +175,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if key.Matches(msg, m.keys.CopyPath) {
-			if p := m.SelectedPath(); p != "" {
-				_ = clipboard.WriteAll(p)
-			}
+			m = copyLaunchCommandToClipboard(m)
 			return m, nil
 		}
 		if key.Matches(msg, m.keys.SortColumn) {
@@ -222,7 +220,7 @@ func (m Model) updateServerSplitTableKeys(msg tea.KeyPressMsg) (Model, tea.Cmd) 
 	if key.Matches(msg, m.keys.Refresh) {
 		m.loading = true
 		m.loadErr = nil
-		m.lastRunNote = ""
+		m = m.withLastRunCleared()
 		m.runtimeScanned = false
 		return m, startupCmd()
 	}
@@ -231,7 +229,7 @@ func (m Model) updateServerSplitTableKeys(msg tea.KeyPressMsg) (Model, tea.Cmd) 
 	}
 	if key.Matches(msg, m.keys.Parameters) {
 		if m.loading {
-			m.lastRunNote = "Wait for the model scan to finish."
+			m = m.withLastRunError("Wait for the model scan to finish.")
 			return m, nil
 		}
 		return m.openParamPanel()
@@ -242,7 +240,7 @@ func (m Model) updateServerSplitTableKeys(msg tea.KeyPressMsg) (Model, tea.Cmd) 
 		return m, cmd
 	}
 	if runServerKeyMode(msg) != 0 {
-		m.lastRunNote = "Stop the server (esc or q) before starting another."
+		m = m.withLastRunError("Stop the server (esc or q) before starting another.")
 		return m, nil
 	}
 	if key.Matches(msg, m.keys.ScrollLeft) {
@@ -254,9 +252,7 @@ func (m Model) updateServerSplitTableKeys(msg tea.KeyPressMsg) (Model, tea.Cmd) 
 		return m, nil
 	}
 	if key.Matches(msg, m.keys.CopyPath) {
-		if p := m.SelectedPath(); p != "" {
-			_ = clipboard.WriteAll(p)
-		}
+		m = copyLaunchCommandToClipboard(m)
 		return m, nil
 	}
 	if key.Matches(msg, m.keys.SortColumn) {
@@ -280,4 +276,16 @@ func (m Model) updateServerSplitTableKeys(msg tea.KeyPressMsg) (Model, tea.Cmd) 
 	var cmd tea.Cmd
 	m.tbl, cmd = m.tbl.Update(msg)
 	return m, cmd
+}
+
+// copyLaunchCommandToClipboard writes the launch preview command and sets lastRunNote feedback.
+func copyLaunchCommandToClipboard(m Model) Model {
+	cmd := launchPreviewCommandLine(m)
+	if cmd == "" {
+		return m.withLastRunError(CopyCommandFeedbackFailure)
+	}
+	if err := clipboard.WriteAll(cmd); err != nil {
+		return m.withLastRunError(CopyCommandFeedbackFailure)
+	}
+	return m.withLastRunSuccess(CopyCommandFeedbackSuccess)
 }

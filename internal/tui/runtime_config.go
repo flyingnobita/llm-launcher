@@ -117,7 +117,7 @@ func newPathTextInput() textinput.Model {
 // openRuntimeConfig shows editors for the same env vars summarized in the runtimes footer.
 func (m Model) openRuntimeConfig() (Model, tea.Cmd) {
 	m.runtimeConfigOpen = true
-	m.lastRunNote = ""
+	m = m.withLastRunCleared()
 	m.runtimeInputs[runtimeFieldLlamaCppPath].SetValue(os.Getenv(llamacpp.EnvLlamaCppPath))
 	m.runtimeInputs[runtimeFieldVLLMPath].SetValue(os.Getenv(llamacpp.EnvVLLMPath))
 	m.runtimeInputs[runtimeFieldVLLMVenv].SetValue(os.Getenv(llamacpp.EnvVLLMVenv))
@@ -153,26 +153,26 @@ func (m Model) focusRuntimeField(i int) (Model, tea.Cmd) {
 
 func (m Model) commitRuntimeConfig() (Model, tea.Cmd) {
 	if err := validatePortCommit(m.runtimeInputs[runtimeFieldLlamaPort].Value()); err != nil {
-		m.lastRunNote = fmt.Sprintf("%s: %v", llamacpp.EnvLlamaServerPort, err)
+		m = m.withLastRunError(fmt.Sprintf("%s: %v", llamacpp.EnvLlamaServerPort, err))
 		return m, nil
 	}
 	if err := validatePortCommit(m.runtimeInputs[runtimeFieldVLLMPort].Value()); err != nil {
-		m.lastRunNote = fmt.Sprintf("%s: %v", llamacpp.EnvVLLMServerPort, err)
+		m = m.withLastRunError(fmt.Sprintf("%s: %v", llamacpp.EnvVLLMServerPort, err))
 		return m, nil
 	}
 	applyPathEnv(llamacpp.EnvLlamaCppPath, m.runtimeInputs[runtimeFieldLlamaCppPath].Value())
 	applyPathEnv(llamacpp.EnvVLLMPath, m.runtimeInputs[runtimeFieldVLLMPath].Value())
 	applyPathEnv(llamacpp.EnvVLLMVenv, m.runtimeInputs[runtimeFieldVLLMVenv].Value())
 	if err := applyListenPortEnv(m.runtimeInputs[runtimeFieldLlamaPort].Value()); err != nil {
-		m.lastRunNote = err.Error()
+		m = m.withLastRunError(err.Error())
 		return m, nil
 	}
 	if err := applyVLLMPortEnv(m.runtimeInputs[runtimeFieldVLLMPort].Value()); err != nil {
-		m.lastRunNote = err.Error()
+		m = m.withLastRunError(err.Error())
 		return m, nil
 	}
 	m.runtime = llamacpp.DiscoverRuntime()
-	m.lastRunNote = ""
+	m = m.withLastRunCleared()
 	m = m.closeRuntimeConfig()
 	return m, nil
 }
@@ -181,7 +181,7 @@ func (m Model) commitRuntimeConfig() (Model, tea.Cmd) {
 func (m Model) updateRuntimeConfigKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
-		m.lastRunNote = ""
+		m = m.withLastRunCleared()
 		m = m.closeRuntimeConfig()
 		return m, nil
 	case "enter":

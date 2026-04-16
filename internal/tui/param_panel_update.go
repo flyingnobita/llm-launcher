@@ -217,10 +217,10 @@ func (m Model) persistParamPanel() (Model, tea.Cmd) {
 		ActiveIndex: m.paramProfileIndex,
 	}
 	if err := saveModelEntry(m.paramModelPath, ent); err != nil {
-		m.lastRunNote = err.Error()
+		m = m.withLastRunError(err.Error())
 		return m, nil
 	}
-	m.lastRunNote = ""
+	m = m.withLastRunCleared()
 	return m, nil
 }
 

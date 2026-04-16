@@ -187,7 +187,7 @@ func (m Model) paramPanelModalBlock() string {
 	}
 	block := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	if m.lastRunNote != "" {
-		block = lipgloss.JoinVertical(lipgloss.Left, block, "", m.styles.errLine.Render(m.lastRunNote))
+		block = lipgloss.JoinVertical(lipgloss.Left, block, "", m.lastRunNoteView())
 	}
 	return m.styles.portConfigBox.Render(block)
 }

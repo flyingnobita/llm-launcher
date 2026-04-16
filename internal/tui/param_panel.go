@@ -98,21 +98,21 @@ func copyProfiles(in []ParameterProfile) []ParameterProfile {
 func (m Model) openParamPanel() (Model, tea.Cmd) {
 	p := m.SelectedPath()
 	if p == "" {
-		m.lastRunNote = "Select a model row first."
+		m = m.withLastRunError("Select a model row first.")
 		return m, nil
 	}
 	m.paramPanelOpen = true
 	m.paramConfirmDelete = paramConfirmNone
 	m.paramModelPath = filepath.Clean(p)
 	m.paramModelDisplayName = modelDisplayNameForPath(m)
-	m.lastRunNote = ""
+	m = m.withLastRunCleared()
 	m.paramEditKind = paramEditNone
 	m.paramEditInput.Blur()
 	m.paramEditInput.SetValue("")
 
 	ent, err := loadModelEntry(m.paramModelPath)
 	if err != nil {
-		m.lastRunNote = err.Error()
+		m = m.withLastRunError(err.Error())
 		ent = modelEntry{
 			Profiles:    []ParameterProfile{{Name: "default", Env: nil, Args: nil}},
 			ActiveIndex: 0,

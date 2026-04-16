@@ -89,8 +89,12 @@ const (
 	FooterHintQuit = FooterKeyQuit + ": " + FooterDescQuit
 
 	FooterKeyCopyPath  = "enter"
-	FooterDescCopyPath = "copy path"
+	FooterDescCopyPath = "copy cmd"
 	FooterHintCopyPath = FooterKeyCopyPath + ": " + FooterDescCopyPath
+
+	// CopyCommandFeedback* are shown below the footer after Enter copies the launch command.
+	CopyCommandFeedbackSuccess = "Command copied to clipboard"
+	CopyCommandFeedbackFailure = "Command failed to copy to clipboard"
 
 	FooterKeySortColumn  = ","
 	FooterDescSortColumn = "sort column"
