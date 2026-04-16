@@ -81,3 +81,14 @@ logs/*
 
 # Development docs
 dev-docs/
+
+# Agents
+.agents/
+.claude/
+.codex/
+.cursor/
+.gemini/
+.gstack/
+.opencode/
+CLAUDE.md
+TODOS.md

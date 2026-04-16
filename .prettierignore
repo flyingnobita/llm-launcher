@@ -19,3 +19,14 @@ venv/
 
 # Testing
 coverage/
+
+# Agents
+.agents/
+.claude/
+.codex/
+.cursor/
+.gemini/
+.gstack/
+.opencode/
+CLAUDE.md
+TODOS.md
