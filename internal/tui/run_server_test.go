@@ -22,7 +22,7 @@ func TestFormatLlamaServerInvocation(t *testing.T) {
 	got := formatLlamaServerInvocation("/bin/llama-server", "/m/a.gguf", 9090, ModelParams{})
 	want := "" +
 		"+ '/bin/llama-server' \\\n" +
-		"  -m '/m/a.gguf' \\\n" +
+		"  --model '/m/a.gguf' \\\n" +
 		"  --alias 'a.gguf' \\\n" +
 		"  --port 9090"
 	if got != want {

@@ -30,7 +30,7 @@ func llamaCommandWords(bin, modelPath string, port int, params ModelParams) []st
 	alias := llamaServerAlias(modelPath)
 	words := []string{
 		shellSingleQuoted(bin),
-		"-m", shellSingleQuoted(modelPath),
+		"--model", shellSingleQuoted(modelPath),
 		"--alias", shellSingleQuoted(alias),
 		"--port", fmt.Sprintf("%d", port),
 	}
@@ -50,8 +50,7 @@ func llamaCommandLine(bin, modelPath string, port int, params ModelParams) strin
 func vllmCommandWords(bin, modelDir string, port int, params ModelParams) []string {
 	served := models.InferModelID(modelDir)
 	words := []string{
-		shellSingleQuoted(bin),
-		"serve",
+		shellSingleQuoted(bin), "serve",
 		shellSingleQuoted(modelDir),
 		"--served-model-name",
 		shellSingleQuoted(served),
