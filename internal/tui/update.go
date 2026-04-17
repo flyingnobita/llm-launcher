@@ -6,8 +6,6 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"github.com/atotto/clipboard"
-
-	"github.com/flyingnobita/llml/internal/models"
 )
 
 // Update implements tea.Model.
@@ -244,16 +242,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m = m.withLastRunCleared()
 			params, _ := loadModelParamsForRun(p)
+			spec, err := buildServerSpec(be, p, params, m.runtime)
+			if err != nil {
+				return m.withLastRunError(err.Error()), nil
+			}
 			if mode == runServerModeFullscreen {
-				if be == models.BackendVLLM {
-					return m, runVLLMServerCmd(p, m.runtime, params)
-				}
-				return m, runLlamaServerCmd(p, m.runtime, params)
+				return m, runForegroundServerCmd(spec)
 			}
-			if be == models.BackendVLLM {
-				return m, runVLLMServerSplitCmd(p, m.runtime, params)
-			}
-			return m, runLlamaServerSplitCmd(p, m.runtime, params)
+			return m, runSplitServerCmd(spec)
 		}
 		if key.Matches(msg, m.keys.ScrollLeft) {
 			m.table.hscroll.ScrollLeft(hScrollStep)
