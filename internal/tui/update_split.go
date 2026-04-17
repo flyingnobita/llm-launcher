@@ -32,16 +32,16 @@ func isEnterKey(msg tea.KeyPressMsg) bool {
 }
 
 // updateServerSplitKeys handles input while a split-pane server is running.
-// Tab switches focus between the model table and the log viewport; see [Model.splitLogFocused].
+// Tab switches focus between the model table and the log viewport; see [Model.server.splitFocused].
 func (m Model) updateServerSplitKeys(msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	if m.serverExited {
+	if m.server.exited {
 		switch {
 		case isTabKey(msg):
-			m.splitLogFocused = !m.splitLogFocused
-			if m.splitLogFocused {
-				m.tbl.Blur()
+			m.server.splitFocused = !m.server.splitFocused
+			if m.server.splitFocused {
+				m.table.tbl.Blur()
 			} else {
-				m.tbl.Focus()
+				m.table.tbl.Focus()
 			}
 			m = m.applySplitPaneFocusStyles()
 			return m, nil
@@ -49,11 +49,11 @@ func (m Model) updateServerSplitKeys(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m = m.dismissSplitServer()
 			return m, nil
 		}
-		if !m.splitLogFocused {
+		if !m.server.splitFocused {
 			return m.updateServerSplitTableKeys(msg)
 		}
 		var cmd tea.Cmd
-		m.serverViewport, cmd = m.serverViewport.Update(msg)
+		m.server.viewport, cmd = m.server.viewport.Update(msg)
 		return m, cmd
 	}
 	switch {
@@ -64,20 +64,20 @@ func (m Model) updateServerSplitKeys(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case isCtrlC(msg):
 		return m.stopSplitServer()
 	case isTabKey(msg):
-		m.splitLogFocused = !m.splitLogFocused
-		if m.splitLogFocused {
-			m.tbl.Blur()
+		m.server.splitFocused = !m.server.splitFocused
+		if m.server.splitFocused {
+			m.table.tbl.Blur()
 		} else {
-			m.tbl.Focus()
+			m.table.tbl.Focus()
 		}
 		m = m.applySplitPaneFocusStyles()
 		return m, nil
 	}
-	if !m.splitLogFocused {
+	if !m.server.splitFocused {
 		return m.updateServerSplitTableKeys(msg)
 	}
 	var cmd tea.Cmd
-	m.serverViewport, cmd = m.serverViewport.Update(msg)
+	m.server.viewport, cmd = m.server.viewport.Update(msg)
 	return m, cmd
 }
 
@@ -89,10 +89,10 @@ func isTabKey(msg tea.KeyPressMsg) bool {
 }
 
 func (m Model) stopSplitServer() (Model, tea.Cmd) {
-	if m.serverExited {
+	if m.server.exited {
 		m = m.dismissSplitServer()
 		return m, nil
 	}
-	_ = interruptServerProcess(m.serverCmd)
+	_ = interruptServerProcess(m.server.cmd)
 	return m, nil
 }

@@ -13,7 +13,7 @@ func writeConfigFromModel(m Model) error {
 	if err == nil {
 		prevPtr = &prev
 	}
-	ts := m.lastScan
+	ts := m.table.lastScan
 	if ts.IsZero() && prevPtr != nil {
 		ts = prevPtr.Discovery.LastScan
 	}
@@ -21,5 +21,5 @@ func writeConfigFromModel(m Model) error {
 		ts = time.Now()
 	}
 	disc := config.DiscoveryConfigForWrite(prevPtr, ts)
-	return config.WriteFile(config.BuildConfig(config.RuntimeFromEnv(), disc, m.files))
+	return config.WriteFile(config.BuildConfig(config.RuntimeFromEnv(), disc, m.table.files))
 }

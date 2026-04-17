@@ -198,11 +198,11 @@ func modelParamsForLaunchPreview(m Model) (ModelParams, bool) {
 	if sel == "" {
 		return ModelParams{}, false
 	}
-	if m.paramPanelOpen {
-		if filepath.Clean(m.paramModelPath) == filepath.Clean(sel) {
+	if m.params.open {
+		if filepath.Clean(m.params.modelPath) == filepath.Clean(sel) {
 			return normalizeModelParams(ModelParams{
-				Env:  append([]EnvVar(nil), m.paramEnv...),
-				Args: flattenArgLines(m.paramArgs),
+				Env:  append([]EnvVar(nil), m.params.env...),
+				Args: flattenArgLines(m.params.args),
 			}), true
 		}
 	}

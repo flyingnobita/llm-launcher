@@ -10,17 +10,17 @@ func (m Model) paramPanelModalBlock() string {
 	if maxLine < 24 {
 		maxLine = 24
 	}
-	secBox := m.styles.paramSectionBox
+	secBox := m.ui.styles.paramSectionBox
 	maxSec := cw - secBox.GetHorizontalFrameSize()
 	if maxSec < 24 {
 		maxSec = 24
 	}
 
-	title := m.modalTitleRow(cw, m.styles.portConfigTitle, "Parameters — "+m.paramModelDisplayName)
+	title := m.modalTitleRow(cw, m.ui.styles.portConfigTitle, "Parameters — "+m.params.modelDisplayName)
 	rows := []string{title, ""}
 
-	if k := m.paramConfirmDelete; k != paramConfirmNone {
-		confirmBox := m.styles.paramConfirmDialog
+	if k := m.params.confirmDelete; k != paramConfirmNone {
+		confirmBox := m.ui.styles.paramConfirmDialog
 		confirmInner := cw - confirmBox.GetHorizontalFrameSize()
 		if confirmInner < 24 {
 			confirmInner = 24
@@ -29,59 +29,59 @@ func (m Model) paramPanelModalBlock() string {
 		switch k {
 		case paramConfirmProfile:
 			pName := ""
-			if m.paramProfileIndex >= 0 && m.paramProfileIndex < len(m.paramProfiles) {
-				pName = m.paramProfiles[m.paramProfileIndex].Name
+			if m.params.profileIndex >= 0 && m.params.profileIndex < len(m.params.profiles) {
+				pName = m.params.profiles[m.params.profileIndex].Name
 			}
 			if pName == "" {
 				pName = "(unnamed)"
 			}
 			nameLine := lipgloss.JoinHorizontal(lipgloss.Top,
-				m.styles.body.Render("  "),
-				m.styles.paramProfileName.Render(truncateParamLine(pName, confirmInner-2)),
+				m.ui.styles.body.Render("  "),
+				m.ui.styles.paramProfileName.Render(truncateParamLine(pName, confirmInner-2)),
 			)
 			confirmRows = []string{
-				m.styles.body.Render("Delete this parameter profile?"),
+				m.ui.styles.body.Render("Delete this parameter profile?"),
 				nameLine,
 			}
 		case paramConfirmEnvRow:
 			line := ""
-			if m.paramEnvCursor >= 0 && m.paramEnvCursor < m.paramEnvLen() {
-				line = formatEnvVar(m.paramEnv[m.paramEnvCursor])
+			if m.params.envCursor >= 0 && m.params.envCursor < m.paramEnvLen() {
+				line = formatEnvVar(m.params.env[m.params.envCursor])
 			}
 			confirmRows = []string{
-				m.styles.body.Render("Delete this environment variable line?"),
-				m.styles.body.Render("  " + truncateParamLine(line, max(confirmInner-2, 8))),
+				m.ui.styles.body.Render("Delete this environment variable line?"),
+				m.ui.styles.body.Render("  " + truncateParamLine(line, max(confirmInner-2, 8))),
 			}
 		case paramConfirmArgRow:
 			line := ""
-			if m.paramArgsCursor >= 0 && m.paramArgsCursor < m.paramArgsLen() {
-				line = m.paramArgs[m.paramArgsCursor]
+			if m.params.argsCursor >= 0 && m.params.argsCursor < m.paramArgsLen() {
+				line = m.params.args[m.params.argsCursor]
 			}
 			confirmRows = []string{
-				m.styles.body.Render("Delete this extra argument line?"),
-				m.styles.body.Render("  " + truncateParamLine(line, max(confirmInner-2, 8))),
+				m.ui.styles.body.Render("Delete this extra argument line?"),
+				m.ui.styles.body.Render("  " + truncateParamLine(line, max(confirmInner-2, 8))),
 			}
 		}
 		if len(confirmRows) > 0 {
 			confirmRows = append(confirmRows, "",
-				m.styles.footer.Render(FooterParamConfirmYN),
+				m.ui.styles.footer.Render(FooterParamConfirmYN),
 			)
 			rows = append(rows, confirmBox.Width(cw).Render(lipgloss.JoinVertical(lipgloss.Left, confirmRows...)))
 			rows = append(rows, "")
 		}
 	}
 
-	rows = append(rows, m.styles.body.Render("  Profiles"))
+	rows = append(rows, m.ui.styles.body.Render("  Profiles"))
 	rows = append(rows, "")
-	for i := range m.paramProfiles {
-		name := m.paramProfiles[i].Name
+	for i := range m.params.profiles {
+		name := m.params.profiles[i].Name
 		if name == "" {
 			name = "(unnamed)"
 		}
-		focused := m.paramFocus == paramFocusProfiles && i == m.paramProfileIndex
+		focused := m.params.focus == paramFocusProfiles && i == m.params.profileIndex
 		switch {
-		case focused && m.paramEditKind == paramEditProfileName:
-			rows = append(rows, m.paramEditInput.View())
+		case focused && m.params.editKind == paramEditProfileName:
+			rows = append(rows, m.params.editInput.View())
 		default:
 			prefix := "  "
 			if focused {
@@ -93,14 +93,14 @@ func (m Model) paramPanelModalBlock() string {
 				nameW = maxLine
 			}
 			row := lipgloss.JoinHorizontal(lipgloss.Top,
-				m.styles.body.Render(prefix),
-				m.styles.paramProfileName.Render(truncateParamLine(name, nameW)),
+				m.ui.styles.body.Render(prefix),
+				m.ui.styles.paramProfileName.Render(truncateParamLine(name, nameW)),
 			)
 			rows = append(rows, row)
 		}
 	}
-	if len(m.paramProfiles) == 0 {
-		rows = append(rows, m.styles.body.Render("  (none)"))
+	if len(m.params.profiles) == 0 {
+		rows = append(rows, m.ui.styles.body.Render("  (none)"))
 	}
 
 	rows = append(rows, "")
@@ -108,29 +108,29 @@ func (m Model) paramPanelModalBlock() string {
 	const sectionHeadingIndent = "  "
 	envHeading := "Environment Variables (e.g. PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True)"
 	detailRows = append(detailRows, lipgloss.JoinHorizontal(lipgloss.Top,
-		m.styles.body.Render(sectionHeadingIndent),
-		m.styles.paramSectionHeading.Render(truncateParamLine(envHeading, maxSec-lipgloss.Width(sectionHeadingIndent))),
+		m.ui.styles.body.Render(sectionHeadingIndent),
+		m.ui.styles.paramSectionHeading.Render(truncateParamLine(envHeading, maxSec-lipgloss.Width(sectionHeadingIndent))),
 	))
 	detailRows = append(detailRows, "")
-	if m.paramEnvLen() == 0 && !(m.paramFocus == paramFocusEnv && m.paramEditKind == paramEditEnvLine) {
+	if m.paramEnvLen() == 0 && !(m.params.focus == paramFocusEnv && m.params.editKind == paramEditEnvLine) {
 		prefix := "  "
-		if m.paramFocus == paramFocusEnv {
+		if m.params.focus == paramFocusEnv {
 			prefix = "› "
 		}
-		detailRows = append(detailRows, m.styles.body.Render(prefix+"(none)"))
+		detailRows = append(detailRows, m.ui.styles.body.Render(prefix+"(none)"))
 	}
-	for i := range m.paramEnv {
-		line := formatEnvVar(m.paramEnv[i])
-		focused := m.paramFocus == paramFocusEnv && m.paramEnvCursor == i
+	for i := range m.params.env {
+		line := formatEnvVar(m.params.env[i])
+		focused := m.params.focus == paramFocusEnv && m.params.envCursor == i
 		switch {
-		case focused && m.paramEditKind == paramEditEnvLine:
-			detailRows = append(detailRows, m.paramEditInput.View())
+		case focused && m.params.editKind == paramEditEnvLine:
+			detailRows = append(detailRows, m.params.editInput.View())
 		default:
 			prefix := "  "
 			if focused {
 				prefix = "› "
 			}
-			detailRows = append(detailRows, m.styles.body.Render(prefix+truncateParamLine(line, maxSec)))
+			detailRows = append(detailRows, m.ui.styles.body.Render(prefix+truncateParamLine(line, maxSec)))
 		}
 	}
 
@@ -138,35 +138,35 @@ func (m Model) paramPanelModalBlock() string {
 
 	argHeading := "Extra arguments (e.g. --max-model-len 131072)"
 	detailRows = append(detailRows, lipgloss.JoinHorizontal(lipgloss.Top,
-		m.styles.body.Render(sectionHeadingIndent),
-		m.styles.paramSectionHeading.Render(truncateParamLine(argHeading, maxSec-lipgloss.Width(sectionHeadingIndent))),
+		m.ui.styles.body.Render(sectionHeadingIndent),
+		m.ui.styles.paramSectionHeading.Render(truncateParamLine(argHeading, maxSec-lipgloss.Width(sectionHeadingIndent))),
 	))
 	detailRows = append(detailRows, "")
-	if m.paramArgsLen() == 0 && !(m.paramFocus == paramFocusArgs && m.paramEditKind == paramEditArgLine) {
+	if m.paramArgsLen() == 0 && !(m.params.focus == paramFocusArgs && m.params.editKind == paramEditArgLine) {
 		prefix := "  "
-		if m.paramFocus == paramFocusArgs {
+		if m.params.focus == paramFocusArgs {
 			prefix = "› "
 		}
-		detailRows = append(detailRows, m.styles.body.Render(prefix+"(none)"))
+		detailRows = append(detailRows, m.ui.styles.body.Render(prefix+"(none)"))
 	}
-	for i := range m.paramArgs {
-		line := m.paramArgs[i]
-		focused := m.paramFocus == paramFocusArgs && m.paramArgsCursor == i
+	for i := range m.params.args {
+		line := m.params.args[i]
+		focused := m.params.focus == paramFocusArgs && m.params.argsCursor == i
 		switch {
-		case focused && m.paramEditKind == paramEditArgLine:
-			detailRows = append(detailRows, m.paramEditInput.View())
+		case focused && m.params.editKind == paramEditArgLine:
+			detailRows = append(detailRows, m.params.editInput.View())
 		default:
 			prefix := "  "
 			if focused {
 				prefix = "› "
 			}
-			detailRows = append(detailRows, m.styles.body.Render(prefix+truncateParamLine(line, maxSec)))
+			detailRows = append(detailRows, m.ui.styles.body.Render(prefix+truncateParamLine(line, maxSec)))
 		}
 	}
 	rows = append(rows, secBox.Width(cw).Render(lipgloss.JoinVertical(lipgloss.Left, detailRows...)))
 
 	var footerHelp string
-	switch m.paramFocus {
+	switch m.params.focus {
 	case paramFocusProfiles:
 		footerHelp = FooterParamFooterProfiles
 	case paramFocusEnv:
@@ -182,12 +182,12 @@ func (m Model) paramPanelModalBlock() string {
 			footerHelp = FooterParamFooterDetailRows
 		}
 	}
-	if m.paramConfirmDelete == paramConfirmNone {
-		rows = append(rows, "", m.styles.footer.Render(footerHelp))
+	if m.params.confirmDelete == paramConfirmNone {
+		rows = append(rows, "", m.ui.styles.footer.Render(footerHelp))
 	}
 	block := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	if m.lastRunNote != "" {
 		block = lipgloss.JoinVertical(lipgloss.Left, block, "", m.lastRunNoteView())
 	}
-	return m.styles.portConfigBox.Render(block)
+	return m.ui.styles.portConfigBox.Render(block)
 }

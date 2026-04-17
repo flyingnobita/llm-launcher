@@ -12,9 +12,9 @@ import (
 
 func TestLayoutTable_wideTerminalFitsViewport(t *testing.T) {
 	m := New()
-	m.width = 203
-	m.height = 80
-	m.files = []models.ModelFile{
+	m.layout.width = 203
+	m.layout.height = 80
+	m.table.files = []models.ModelFile{
 		{
 			Backend: models.BackendLlama,
 			Path:    "/x",
@@ -25,15 +25,15 @@ func TestLayoutTable_wideTerminalFitsViewport(t *testing.T) {
 	}
 	m.loading = false
 	m = m.layoutTable()
-	if m.tableNeedsHScroll {
+	if m.layout.tableNeedsHScroll {
 		t.Fatalf("table should not need horizontal scroll bar on wide terminal (min width fits inner body)")
 	}
 }
 
 func TestModelsLoadedSelectsFirstRow(t *testing.T) {
 	m := New()
-	m.width = 120
-	m.height = 40
+	m.layout.width = 120
+	m.layout.height = 40
 	// Resolved llama-server path present so the missing-runtime footer line is not set for GGUF rows.
 	m.runtime = models.RuntimeInfo{LlamaServerPath: "/fake/llama-server"}
 	files := []models.ModelFile{
@@ -45,16 +45,16 @@ func TestModelsLoadedSelectsFirstRow(t *testing.T) {
 		t.Fatal("unexpected cmd from modelsLoadedMsg")
 	}
 	m = next.(Model)
-	if m.tbl.Cursor() != 0 {
-		t.Fatalf("cursor %d want 0 (first row)", m.tbl.Cursor())
+	if m.table.tbl.Cursor() != 0 {
+		t.Fatalf("cursor %d want 0 (first row)", m.table.tbl.Cursor())
 	}
 }
 
 func TestModelsLoaded_FooterErrorWhenGGUFWithoutLlamaServer(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	m := New()
-	m.width = 120
-	m.height = 40
+	m.layout.width = 120
+	m.layout.height = 40
 	m.runtime = models.RuntimeInfo{}
 	files := []models.ModelFile{
 		{Backend: models.BackendLlama, Path: "/a.gguf", Name: "a", Size: 1, ModTime: time.Unix(0, 0)},
@@ -64,7 +64,7 @@ func TestModelsLoaded_FooterErrorWhenGGUFWithoutLlamaServer(t *testing.T) {
 		t.Fatal("unexpected cmd from modelsLoadedMsg")
 	}
 	m = next.(Model)
-	if m.runtimeConfigOpen {
+	if m.rc.open {
 		t.Fatal("runtime config should not auto-open")
 	}
 	if !strings.Contains(m.lastRunNote, MissingLlamaServerFooterNote) {
@@ -75,8 +75,8 @@ func TestModelsLoaded_FooterErrorWhenGGUFWithoutLlamaServer(t *testing.T) {
 func TestModelsLoaded_FooterErrorWhenVLLMWithoutVllm(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	m := New()
-	m.width = 120
-	m.height = 40
+	m.layout.width = 120
+	m.layout.height = 40
 	m.runtime = models.RuntimeInfo{}
 	files := []models.ModelFile{
 		{Backend: models.BackendVLLM, Path: "/m", Name: "m", Size: 1, ModTime: time.Unix(0, 0)},
@@ -86,7 +86,7 @@ func TestModelsLoaded_FooterErrorWhenVLLMWithoutVllm(t *testing.T) {
 		t.Fatal("unexpected cmd from modelsLoadedMsg")
 	}
 	m = next.(Model)
-	if m.runtimeConfigOpen {
+	if m.rc.open {
 		t.Fatal("runtime config should not auto-open")
 	}
 	if !strings.Contains(m.lastRunNote, MissingVLLMFooterNote) {
@@ -97,8 +97,8 @@ func TestModelsLoaded_FooterErrorWhenVLLMWithoutVllm(t *testing.T) {
 func TestModelsLoaded_FooterErrorBothBackendsMissing(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	m := New()
-	m.width = 120
-	m.height = 40
+	m.layout.width = 120
+	m.layout.height = 40
 	m.runtime = models.RuntimeInfo{}
 	files := []models.ModelFile{
 		{Backend: models.BackendLlama, Path: "/a.gguf", Name: "a", Size: 1, ModTime: time.Unix(0, 0)},
@@ -109,7 +109,7 @@ func TestModelsLoaded_FooterErrorBothBackendsMissing(t *testing.T) {
 		t.Fatal("unexpected cmd from modelsLoadedMsg")
 	}
 	m = next.(Model)
-	if m.runtimeConfigOpen {
+	if m.rc.open {
 		t.Fatal("runtime config should not auto-open")
 	}
 	if !strings.Contains(m.lastRunNote, MissingLlamaServerFooterNote) || !strings.Contains(m.lastRunNote, MissingVLLMFooterNote) {
@@ -129,8 +129,8 @@ func TestAppendServerLogLine_caps(t *testing.T) {
 	for i := 0; i < maxServerLogLines+50; i++ {
 		m = m.appendServerLogLine("x")
 	}
-	if len(m.serverLog) != maxServerLogLines {
-		t.Fatalf("got len %d want %d", len(m.serverLog), maxServerLogLines)
+	if len(m.server.log) != maxServerLogLines {
+		t.Fatalf("got len %d want %d", len(m.server.log), maxServerLogLines)
 	}
 }
 
@@ -156,8 +156,8 @@ func TestRunServerKeyMode(t *testing.T) {
 
 func TestNew_zeroSize(t *testing.T) {
 	m := New()
-	if m.width != 0 || m.height != 0 {
-		t.Fatalf("expected zero dimensions, got %dx%d", m.width, m.height)
+	if m.layout.width != 0 || m.layout.height != 0 {
+		t.Fatalf("expected zero dimensions, got %dx%d", m.layout.width, m.layout.height)
 	}
 	if !m.loading {
 		t.Fatal("expected loading true before first frame")
@@ -169,8 +169,8 @@ func TestNew_zeroSize(t *testing.T) {
 func TestViewAltScreen(t *testing.T) {
 	t.Setenv(EnvLLMLTheme, "dark")
 	m := New()
-	m.width = 80
-	m.height = 24
+	m.layout.width = 80
+	m.layout.height = 24
 	v := m.View()
 	if _, ok := any(v).(tea.View); !ok {
 		t.Fatalf("View() should return tea.View, got %T", v)
@@ -185,16 +185,16 @@ func TestViewAltScreen(t *testing.T) {
 func TestMainViewShowsTitleAndFooterNavHint(t *testing.T) {
 	m := New()
 	// Footer line is longer than [minTerminalWidth]; use a width that fits the full hint bar.
-	m.width = 100
-	m.height = 32
+	m.layout.width = 100
+	m.layout.height = 32
 	m.loading = false
-	m.files = []models.ModelFile{
+	m.table.files = []models.ModelFile{
 		{Backend: models.BackendLlama, Path: "/a.gguf", Name: "a", Size: 1, ModTime: time.Unix(0, 0)},
 		{Backend: models.BackendLlama, Path: "/b.gguf", Name: "b", Size: 1, ModTime: time.Unix(0, 0)},
 	}
 	m = m.layoutTable()
 
-	content := visibleViewport(m.View().Content, m.width, m.height)
+	content := visibleViewport(m.View().Content, m.layout.width, m.layout.height)
 	if !strings.Contains(content, appTitle) {
 		t.Fatalf("missing app title in normal view (len=%d)", len(content))
 	}
@@ -205,12 +205,12 @@ func TestMainViewShowsTitleAndFooterNavHint(t *testing.T) {
 
 func TestSplitViewShowsTitleAndFooterHints(t *testing.T) {
 	m := New()
-	m.width = 100
-	m.height = 32
+	m.layout.width = 100
+	m.layout.height = 32
 	m.loading = false
-	m.serverRunning = true
-	m.splitLogFocused = false
-	m.files = []models.ModelFile{
+	m.server.running = true
+	m.server.splitFocused = false
+	m.table.files = []models.ModelFile{
 		{Backend: models.BackendLlama, Path: "/a.gguf", Name: "a", Size: 1, ModTime: time.Unix(0, 0)},
 		{Backend: models.BackendLlama, Path: "/b.gguf", Name: "b", Size: 1, ModTime: time.Unix(0, 0)},
 	}
@@ -219,7 +219,7 @@ func TestSplitViewShowsTitleAndFooterHints(t *testing.T) {
 	}
 	m = m.layoutTable()
 
-	content := visibleViewport(m.View().Content, m.width, m.height)
+	content := visibleViewport(m.View().Content, m.layout.width, m.layout.height)
 	if !strings.Contains(content, appTitle) {
 		t.Fatalf("missing app title in split view (len=%d)", len(content))
 	}

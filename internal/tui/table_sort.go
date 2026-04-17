@@ -79,7 +79,7 @@ func compareModelFilesCol(a, b models.ModelFile, col tableSortCol) int {
 	}
 }
 
-// applyTableSort sorts [Model.files] according to [Model.sortCol] and [Model.sortDesc], rebuilds the
+// applyTableSort sorts [Model.table.files] according to [Model.table.sortCol] and [Model.table.sortDesc], rebuilds the
 // table, and moves the cursor to the row whose path matched selPath when non-empty.
 //
 // The cursor must be restored BEFORE layoutTable because [Model.launchPreviewPaneLayoutHeight]
@@ -87,11 +87,11 @@ func compareModelFilesCol(a, b models.ModelFile, col tableSortCol) int {
 // cursor after reorder points at a different model whose preview command may wrap
 // to a different number of lines, shifting the table height by 1 row.
 func (m Model) applyTableSort(selPath string) Model {
-	sortModelFiles(m.files, m.sortCol, m.sortDesc)
+	sortModelFiles(m.table.files, m.table.sortCol, m.table.sortDesc)
 	if selPath != "" {
-		for i := range m.files {
-			if m.files[i].Path == selPath {
-				m.tbl.SetCursor(i)
+		for i := range m.table.files {
+			if m.table.files[i].Path == selPath {
+				m.table.tbl.SetCursor(i)
 				break
 			}
 		}

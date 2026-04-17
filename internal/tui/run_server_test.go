@@ -70,12 +70,12 @@ func TestSplitServerInvocationEcho_matchesLlamaSplitLogLine(t *testing.T) {
 	m := New()
 	m.loading = false
 	m.loadErr = nil
-	m.files = []models.ModelFile{
+	m.table.files = []models.ModelFile{
 		{Backend: models.BackendLlama, Path: modelPath, Name: "a", Size: 1},
 	}
 	m.runtime = models.RuntimeInfo{LlamaServerPath: "/bin/llama-server"}
-	m.tbl.SetRows([]btable.Row{{"a", "a", "llama.cpp", "1 B", "", modelPath}})
-	m.tbl.SetCursor(0)
+	m.table.tbl.SetRows([]btable.Row{{"a", "a", "llama.cpp", "1 B", "", modelPath}})
+	m.table.tbl.SetCursor(0)
 
 	p := ModelParams{
 		Env:  []EnvVar{{Key: "FOO", Value: "bar"}},
@@ -111,12 +111,12 @@ func TestLaunchPreviewCommandLine_vllmOmitsActivateWrapper(t *testing.T) {
 	m := New()
 	m.loading = false
 	m.loadErr = nil
-	m.files = []models.ModelFile{
+	m.table.files = []models.ModelFile{
 		{Backend: models.BackendVLLM, Path: modelPath, Name: "m", Size: 1},
 	}
 	m.runtime = models.RuntimeInfo{VLLMPath: "/proj/.venv/bin/vllm"}
-	m.tbl.SetRows([]btable.Row{{"m", "hf-model", "vllm", "1 B", "", modelPath}})
-	m.tbl.SetCursor(0)
+	m.table.tbl.SetRows([]btable.Row{{"m", "hf-model", "vllm", "1 B", "", modelPath}})
+	m.table.tbl.SetCursor(0)
 
 	p := ModelParams{Env: []EnvVar{{Key: "CUDA_VISIBLE_DEVICES", Value: "0"}}}
 	if err := saveModelEntry(modelPath, modelEntry{

@@ -11,17 +11,17 @@ import (
 func setupPreviewScrollableModel() Model {
 	m := newTestModel()
 	// Add a file so SelectedModel returns non-empty.
-	m.files = []models.ModelFile{
+	m.table.files = []models.ModelFile{
 		{Path: "/tmp/test.gguf", Name: "test.gguf", Backend: models.BackendLlama},
 	}
-	cols := tableColumns(100, m.files, m.homeDir, m.sortCol, m.sortDesc)
-	m.tbl.SetRows(buildTableRows(m.files, cols, m.homeDir))
+	cols := tableColumns(100, m.table.files, m.layout.homeDir, m.table.sortCol, m.table.sortDesc)
+	m.table.tbl.SetRows(buildTableRows(m.table.files, cols, m.layout.homeDir))
 	m = m.layoutTable()
 	// Make the preview scrollable by setting launchPreviewLastCmd to something
 	// that the preview won't fit in launchPreviewVisibleLines lines.
 	cmd := "llama-server --model /tmp/test.gguf --port 8080 --alias test.gguf\n  --ctx-size 2048 --n-gpu-layers 0\n  --extra-arg-1 foo\n  --extra-arg-2 bar\n  --extra-arg-3 baz"
-	m.launchPreviewViewport.SetContent(cmd)
-	m.launchPreviewLastCmd = cmd
+	m.preview.viewport.SetContent(cmd)
+	m.preview.lastCmd = cmd
 	return m
 }
 
@@ -30,14 +30,14 @@ func TestLaunchPreviewFocus_TabFocusesWhenScrollable(t *testing.T) {
 	if !launchPreviewScrollable(m) {
 		t.Skip("preview not scrollable in this terminal size; skipping focus test")
 	}
-	m.launchPreviewFocused = false
+	m.preview.focused = false
 
 	got, _ := m.Update(tabMsg())
 	gm, ok := got.(Model)
 	if !ok {
 		t.Fatalf("Update returned unexpected type %T", got)
 	}
-	if !gm.launchPreviewFocused {
+	if !gm.preview.focused {
 		t.Fatalf("expected launchPreviewFocused=true after Tab on scrollable preview, got false")
 	}
 }
@@ -47,14 +47,14 @@ func TestLaunchPreviewFocus_TabUnfocuses(t *testing.T) {
 	if !launchPreviewScrollable(m) {
 		t.Skip("preview not scrollable in this terminal size; skipping focus test")
 	}
-	m.launchPreviewFocused = true
+	m.preview.focused = true
 
 	got, _ := m.Update(tabMsg())
 	gm, ok := got.(Model)
 	if !ok {
 		t.Fatalf("Update returned unexpected type %T", got)
 	}
-	if gm.launchPreviewFocused {
+	if gm.preview.focused {
 		t.Fatalf("expected launchPreviewFocused=false after Tab when already focused, got true")
 	}
 }
