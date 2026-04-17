@@ -124,6 +124,7 @@ func New() Model {
 	)
 	hv := viewport.New(viewport.WithWidth(96), viewport.WithHeight(defaultTableHeight))
 	hv.SetHorizontalStep(hScrollStep)
+	hv.Style = st.splitPaneChromeFocused
 	sv := viewport.New(viewport.WithWidth(96), viewport.WithHeight(1))
 	sv.MouseWheelEnabled = true
 	sv.Style = st.serverLogViewport
@@ -255,72 +256,17 @@ func (m Model) layoutTable() Model {
 	minW := tableContentMinWidth(cols)
 	m.table.tbl.SetWidth(max(minW, innerW))
 	// Column widths do not change when only header labels (sort indicators) change; using
-	// minW keeps the horizontal scroll bar row and table body height stable. Measuring
-	// lipgloss.Width of the rendered header row can disagree with minW when glyphs differ.
+	// minW keeps the horizontal scroll bar row and table body height stable.
 	m.layout.tableNeedsHScroll = len(m.table.files) > 0 && minW > innerW
 
-	var h int
-	if m.layout.height <= 0 {
-		h = defaultTableHeight
-	} else {
-		// Bubble Tea keeps only the bottom m.layout.height lines if the view is taller;
-		// size the table so framed (padding + chrome + body) fits.
-		appPad := m.ui.styles.app.GetVerticalFrameSize()
-		innerMax := m.layout.height - appPad
-		if innerMax < 1 {
-			innerMax = 1
-		}
-		needsLogHBarGuess := m.server.running && maxAnsiLineWidth(m.server.log) > max(1, innerW-8)
-		static := mainChromeLines(m, m.layout.tableNeedsHScroll, needsLogHBarGuess)
-		h = innerMax - static
-		if h < 1 {
-			h = 1
-		}
-	}
+	// Determine log h-bar without a heuristic: content wider than viewport inner width → bar shown.
+	// Uses the style frame size directly so no second pass is needed.
+	logFrameH := m.server.viewport.Style.GetHorizontalFrameSize()
+	needsLogHBar := m.server.running && maxAnsiLineWidth(m.server.log) > max(1, innerW-logFrameH)
 
 	previewH := m.launchPreviewPaneLayoutHeight()
-
-	setHeights := func(bodyH int) {
-		tableFrameV := m.table.hscroll.Style.GetVerticalFrameSize()
-		logFrameV := m.server.viewport.Style.GetVerticalFrameSize()
-		if m.server.running {
-			rest := bodyH - previewH
-			if rest < 2 {
-				// Need at least one line each for table and log; may exceed bodyH on tiny terminals.
-				rest = 2
-			}
-			tablePaneH, logPaneH := splitServerBodyHeights(rest)
-			tableContentH := tablePaneH - tableFrameV
-			if tableContentH < 1 {
-				tableContentH = 1
-			}
-			logContentH := logPaneH - logFrameV
-			if logContentH < 1 {
-				logContentH = 1
-			}
-			m.table.tbl.SetHeight(tableRowAreaHeight(tableContentH))
-			m.server.viewport.SetHeight(logContentH)
-			m.server.viewport.SetWidth(innerW)
-			if m.server.viewport.TotalLineCount() > m.server.viewport.VisibleLineCount() {
-				m.server.viewport.SetWidth(innerW - 1)
-			}
-			m.server.viewportH = logContentH
-		} else {
-			tablePaneH := bodyH - previewH
-			if tablePaneH < 1 {
-				tablePaneH = 1
-			}
-			tableContentH := tablePaneH - tableFrameV
-			if tableContentH < 1 {
-				tableContentH = 1
-			}
-			m.table.tbl.SetHeight(tableRowAreaHeight(tableContentH))
-			m.server.viewport.SetWidth(innerW)
-			m.server.viewport.SetHeight(1)
-			m.server.viewportH = 0
-		}
-	}
-	setHeights(h)
+	h := m.computeBodyHeight(needsLogHBar)
+	m = m.applyTableAndLogHeights(h, innerW, previewH)
 
 	m.table.tbl.SetRows(buildTableRows(m.table.files, cols, m.layout.homeDir))
 	tview := m.table.tbl.View()
@@ -332,41 +278,74 @@ func (m Model) layoutTable() Model {
 		m.layout.tableLineWidth = 0
 	}
 
-	// Second pass only when log horizontal scroll bar visibility differs from estimate.
-	if m.layout.height > 0 {
-		needsLogHBar := m.server.running && m.serverLogNeedsHorizontalScroll()
-		needsLogHBarGuess := m.server.running && maxAnsiLineWidth(m.server.log) > max(1, innerW-8)
-		if needsLogHBar != needsLogHBarGuess {
-			appPad := m.ui.styles.app.GetVerticalFrameSize()
-			innerMax := m.layout.height - appPad
-			if innerMax < 1 {
-				innerMax = 1
-			}
-			static := mainChromeLines(m, m.layout.tableNeedsHScroll, needsLogHBar)
-			h2 := innerMax - static
-			if h2 < 1 {
-				h2 = 1
-			}
-			if h2 != h {
-				h = h2
-				setHeights(h)
-				m.table.tbl.SetRows(buildTableRows(m.table.files, cols, m.layout.homeDir))
-				tview = m.table.tbl.View()
-				m.layout.tableBodyH = max(1, strings.Count(tview, "\n")+1)
-				lines = strings.Split(tview, "\n")
-				if len(lines) > 0 {
-					m.layout.tableLineWidth = lipgloss.Width(lines[0])
-				}
-			}
-		}
-	}
-
 	m.table.hscroll.SetContent(tview)
 	m.table.hscroll.SetWidth(innerW)
 	m.table.hscroll.SetHeight(m.layout.tableBodyH)
 
 	m = m.syncLaunchPreviewViewport(innerW)
 	m = m.applyMainPaneFocusStyles()
+	return m
+}
+
+// computeBodyHeight returns the total body rows available for the table + log panes.
+func (m Model) computeBodyHeight(needsLogHBar bool) int {
+	if m.layout.height <= 0 {
+		return defaultTableHeight
+	}
+	// Bubble Tea keeps only the bottom m.layout.height lines if the view is taller;
+	// size the table so framed (padding + chrome + body) fits.
+	appPad := m.ui.styles.app.GetVerticalFrameSize()
+	innerMax := m.layout.height - appPad
+	if innerMax < 1 {
+		innerMax = 1
+	}
+	h := innerMax - mainChromeLines(m, m.layout.tableNeedsHScroll, needsLogHBar)
+	if h < 1 {
+		h = 1
+	}
+	return h
+}
+
+// applyTableAndLogHeights sets table and server-log viewport dimensions from bodyH.
+func (m Model) applyTableAndLogHeights(bodyH, innerW, previewH int) Model {
+	tableFrameV := m.table.hscroll.Style.GetVerticalFrameSize()
+	logFrameV := m.server.viewport.Style.GetVerticalFrameSize()
+	if m.server.running {
+		rest := bodyH - previewH
+		if rest < 2 {
+			// Need at least one line each for table and log; may exceed bodyH on tiny terminals.
+			rest = 2
+		}
+		tablePaneH, logPaneH := splitServerBodyHeights(rest)
+		tableContentH := tablePaneH - tableFrameV
+		if tableContentH < 1 {
+			tableContentH = 1
+		}
+		logContentH := logPaneH - logFrameV
+		if logContentH < 1 {
+			logContentH = 1
+		}
+		m.table.tbl.SetHeight(tableRowAreaHeight(tableContentH))
+		m.server.viewport.SetHeight(logContentH)
+		m.server.viewport.SetWidth(innerW)
+		if m.server.viewport.TotalLineCount() > m.server.viewport.VisibleLineCount() {
+			m.server.viewport.SetWidth(innerW - 1)
+		}
+		m.server.viewportH = logContentH
+	} else {
+		tablePaneH := bodyH - previewH
+		if tablePaneH < 1 {
+			tablePaneH = 1
+		}
+		tableContentH := tablePaneH - tableFrameV
+		if tableContentH < 1 {
+			tableContentH = 1
+		}
+		m.table.tbl.SetHeight(tableRowAreaHeight(tableContentH))
+		m.server.viewport.SetWidth(innerW)
+		m.server.viewport.SetHeight(1)
+		m.server.viewportH = 0
+	}
 	return m
 }
 
