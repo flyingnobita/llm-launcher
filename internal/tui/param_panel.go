@@ -106,6 +106,7 @@ func (m Model) openParamPanel() (Model, tea.Cmd) {
 		return m, nil
 	}
 	m.paramPanelOpen = true
+	m.launchPreviewFocused = false
 	m.paramConfirmDelete = paramConfirmNone
 	m.paramModelPath = filepath.Clean(p)
 	m.paramModelDisplayName = modelDisplayNameForPath(m)

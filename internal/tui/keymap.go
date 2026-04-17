@@ -20,6 +20,9 @@ type KeyMap struct {
 	SortColumn   key.Binding
 	SortReverse  key.Binding
 	RescanModels key.Binding
+	// LaunchPreviewScroll scroll the fixed-height launch command preview (idle main view).
+	LaunchPreviewScrollUp   key.Binding
+	LaunchPreviewScrollDown key.Binding
 }
 
 // runServerKeyMode returns 1 for split-pane run (R), 2 for fullscreen [tea.ExecProcess] (ctrl+r),
@@ -96,6 +99,14 @@ func DefaultKeyMap() KeyMap {
 		SortReverse: key.NewBinding(
 			key.WithKeys(FooterKeySortReverse),
 			key.WithHelp(FooterKeySortReverse, FooterDescSortReverse),
+		),
+		LaunchPreviewScrollUp: key.NewBinding(
+			key.WithKeys(FooterKeyLaunchPreviewScrollUp),
+			key.WithHelp(FooterKeyLaunchPreviewScrollUp, FooterDescLaunchPreviewScroll),
+		),
+		LaunchPreviewScrollDown: key.NewBinding(
+			key.WithKeys(FooterKeyLaunchPreviewScrollDown),
+			key.WithHelp(FooterKeyLaunchPreviewScrollDown, FooterDescLaunchPreviewScroll),
 		),
 	}
 }

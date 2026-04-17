@@ -73,6 +73,11 @@ type Model struct {
 	serverViewport      viewport.Model
 	serverViewportH     int
 	splitLogFocused     bool // true: keys scroll log; false: keys use model table (Tab toggles).
+
+	// Launch command preview below the table: fixed-height scrollable viewport; see view.go.
+	launchPreviewViewport viewport.Model
+	launchPreviewFocused  bool   // idle only: Tab toggles with table when preview is scrollable
+	launchPreviewLastCmd  string // resets scroll when the displayed command changes
 }
 
 // New returns a model with default key bindings and an empty table; Init triggers discovery.
@@ -94,16 +99,23 @@ func New() Model {
 	sv := viewport.New(viewport.WithWidth(96), viewport.WithHeight(1))
 	sv.MouseWheelEnabled = true
 	sv.Style = st.serverLogViewport
+	lpvOuter := launchPreviewVisibleLines + st.launchPreviewViewport.GetVerticalFrameSize()
+	lpv := viewport.New(viewport.WithWidth(96), viewport.WithHeight(lpvOuter))
+	lpv.MouseWheelEnabled = true
+	lpv.MouseWheelDelta = 1
+	lpv.SoftWrap = true
+	lpv.Style = st.launchPreviewViewport
 	return Model{
-		homeDir:        homeDir,
-		theme:          th,
-		themePick:      pick,
-		styles:         st,
-		sortCol:        defaultSortCol,
-		keys:           DefaultKeyMap(),
-		tbl:            t,
-		hscroll:        hv,
-		serverViewport: sv,
+		homeDir:               homeDir,
+		theme:                 th,
+		themePick:             pick,
+		styles:                st,
+		sortCol:               defaultSortCol,
+		keys:                  DefaultKeyMap(),
+		tbl:                   t,
+		hscroll:               hv,
+		serverViewport:        sv,
+		launchPreviewViewport: lpv,
 		runtimeInputs: [runtimeFieldCount]textinput.Model{
 			newPathTextInput(),
 			newPathTextInput(),
@@ -224,7 +236,7 @@ func (m Model) layoutTable() Model {
 		}
 	}
 
-	previewH := m.launchPreviewLineCount(innerW)
+	previewH := m.launchPreviewPaneLayoutHeight()
 
 	setHeights := func(bodyH int) {
 		tableFrameV := m.hscroll.Style.GetVerticalFrameSize()
@@ -307,10 +319,91 @@ func (m Model) layoutTable() Model {
 		}
 	}
 
-	m = m.applySplitPaneFocusStyles()
 	m.hscroll.SetContent(tview)
 	m.hscroll.SetWidth(innerW)
 	m.hscroll.SetHeight(m.tableBodyH)
+
+	m = m.syncLaunchPreviewViewport(innerW)
+	m = m.applyMainPaneFocusStyles()
+	return m
+}
+
+// launchPreviewPaneLayoutHeight returns vertical rows consumed by the launch command preview
+// (margin + bordered viewport) when models are listed.
+func (m Model) launchPreviewPaneLayoutHeight() int {
+	if !launchPreviewVisible(m) {
+		return 0
+	}
+	// MarginTop(1) on [styles.launchPreview] plus the fixed-height bordered viewport.
+	return m.styles.launchPreview.GetMarginTop() +
+		m.styles.launchPreviewViewport.GetVerticalFrameSize() +
+		launchPreviewVisibleLines
+}
+
+// syncLaunchPreviewViewport sets viewport dimensions and wrapped content from the selected row.
+func (m Model) syncLaunchPreviewViewport(innerW int) Model {
+	if innerW < minInnerWidth {
+		innerW = minInnerWidth
+	}
+	if !launchPreviewVisible(m) {
+		m.launchPreviewViewport.SetContent("")
+		m.launchPreviewLastCmd = ""
+		return m
+	}
+	cmd := launchPreviewCommandLine(m)
+	if cmd != m.launchPreviewLastCmd {
+		m.launchPreviewViewport.GotoTop()
+		m.launchPreviewLastCmd = cmd
+	}
+	fr := m.launchPreviewViewport.Style.GetHorizontalFrameSize()
+	textW := innerW - fr
+	if textW < 8 {
+		textW = 8
+	}
+	pvFrV := m.launchPreviewViewport.Style.GetVerticalFrameSize()
+	outerH := launchPreviewVisibleLines + pvFrV
+
+	m.launchPreviewViewport.SetWidth(innerW)
+	rendered := m.styles.launchPreviewContent.Width(textW).Render(cmd)
+	m.launchPreviewViewport.SetContent(rendered)
+	m.launchPreviewViewport.SetHeight(outerH)
+	if m.launchPreviewViewport.TotalLineCount() > m.launchPreviewViewport.VisibleLineCount() {
+		m.launchPreviewViewport.SetWidth(innerW - 1)
+		textW = innerW - 1 - fr
+		if textW < 8 {
+			textW = 8
+		}
+		rendered = m.styles.launchPreviewContent.Width(textW).Render(cmd)
+		m.launchPreviewViewport.SetContent(rendered)
+		m.launchPreviewViewport.SetHeight(outerH)
+	}
+	return m
+}
+
+// withLaunchPreviewSynced refreshes the launch preview after table input without a full layout pass.
+func (m Model) withLaunchPreviewSynced() Model {
+	iw := m.bodyInnerW
+	if iw < 1 {
+		iw = m.innerWidth()
+	}
+	return m.syncLaunchPreviewViewport(iw)
+}
+
+// applyMainPaneFocusStyles sets table vs launch-preview chrome when idle, or delegates to
+// [Model.applySplitPaneFocusStyles] when a split-pane server is running.
+func (m Model) applyMainPaneFocusStyles() Model {
+	if m.serverRunning {
+		m = m.applySplitPaneFocusStyles()
+		m.launchPreviewViewport.Style = m.styles.launchPreviewViewport
+		return m
+	}
+	if m.launchPreviewFocused {
+		m.hscroll.Style = m.styles.splitPaneChromeDim
+		m.launchPreviewViewport.Style = m.styles.splitPaneChromeFocused
+	} else {
+		m.hscroll.Style = m.styles.splitPaneChromeFocused
+		m.launchPreviewViewport.Style = m.styles.launchPreviewViewport
+	}
 	return m
 }
 
@@ -356,6 +449,7 @@ func (m Model) cycleTheme() (Model, tea.Cmd) {
 	m.theme = themeFromPick(m.themePick, compat.HasDarkBackground)
 	m.styles = newStyles(m.theme)
 	m.themeToast = themeToastText(m.themePick, m.theme)
+	m.launchPreviewViewport.Style = m.styles.launchPreviewViewport
 	m = m.layoutTable()
 	return m, clearThemeToastAfterCmd()
 }
@@ -387,6 +481,7 @@ func (m Model) dismissSplitServer() Model {
 	m.serverRunning = false
 	m.serverExited = false
 	m.splitLogFocused = false
+	m.launchPreviewFocused = false
 	m.serverCmd = nil
 	m.serverMsgCh = nil
 	m.serverLog = nil

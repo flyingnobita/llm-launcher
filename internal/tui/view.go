@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/flyingnobita/llml/internal/llamacpp"
@@ -21,13 +22,38 @@ func (m Model) serverLogPaneView() string {
 	if trackH < 1 {
 		trackH = 1
 	}
-	col := verticalScrollBarColumn(m.serverViewport.ScrollPercent(), trackH)
-	col = m.styles.footer.Render(col)
+	col := verticalScrollBarColumn(viewportVerticalScrollPercent(m.serverViewport), trackH)
+	col = m.styles.scrollBarColumn.Render(col)
 	return lipgloss.JoinHorizontal(lipgloss.Top, vp, col)
 }
 
+// viewportVerticalScrollPercent returns [0,1] for vertical scroll position. The
+// upstream [viewport.Model.ScrollPercent] compares outer Height to total line count
+// and divides by (total−Height), which is wrong for bordered viewports (the maximum
+// Y offset uses total−Height+frameSize) and breaks when SoftWrap inflates total.
+func viewportVerticalScrollPercent(vp viewport.Model) float64 {
+	total := vp.TotalLineCount()
+	if total == 0 {
+		return 0
+	}
+	vs := vp.Style.GetVerticalFrameSize()
+	maxY := total - vp.Height() + vs
+	if maxY <= 0 {
+		return 0
+	}
+	y := float64(vp.YOffset())
+	p := y / float64(maxY)
+	if p < 0 {
+		return 0
+	}
+	if p > 1 {
+		return 1
+	}
+	return p
+}
+
 // verticalScrollBarColumn renders a single-column scroll indicator: filled cells
-// from the top grow with scroll position (see [viewport.Model.ScrollPercent]).
+// from the top grow with scroll position ([viewportVerticalScrollPercent]).
 func verticalScrollBarColumn(pct float64, trackH int) string {
 	if trackH < 2 {
 		return ""
@@ -64,31 +90,33 @@ func launchPreviewVisible(m Model) bool {
 	return true
 }
 
-// launchPreviewStyled renders the server command (wrapped to innerW) or "".
-func (m Model) launchPreviewStyled(innerW int) string {
+// launchPreviewScrollable is true when the launch command has more lines than the fixed preview height.
+func launchPreviewScrollable(m Model) bool {
+	return launchPreviewVisible(m) &&
+		m.launchPreviewViewport.TotalLineCount() > m.launchPreviewViewport.VisibleLineCount()
+}
+
+// launchPreviewPaneView renders the bordered, scrollable launch command viewport or "".
+func (m Model) launchPreviewPaneView() string {
 	if !launchPreviewVisible(m) {
 		return ""
 	}
-	line := launchPreviewCommandLine(m)
-	if line == "" {
-		return ""
+	vp := m.launchPreviewViewport.View()
+	if !launchPreviewScrollable(m) {
+		return m.styles.launchPreview.Render(vp)
 	}
-	if innerW < 8 {
-		innerW = 8
+	trackH := lipgloss.Height(vp)
+	if trackH < 1 {
+		trackH = 1
 	}
-	return m.styles.launchPreview.Width(innerW).Render(line)
+	col := verticalScrollBarColumn(viewportVerticalScrollPercent(m.launchPreviewViewport), trackH)
+	col = m.styles.scrollBarColumn.Render(col)
+	row := lipgloss.JoinHorizontal(lipgloss.Top, vp, col)
+	return m.styles.launchPreview.Render(row)
 }
 
-// launchPreviewLineCount returns the rendered height of the launch preview, or 0.
-func (m Model) launchPreviewLineCount(innerW int) int {
-	s := m.launchPreviewStyled(innerW)
-	if s == "" {
-		return 0
-	}
-	return lipgloss.Height(s)
-}
-
-// runtimePanelView renders the bottom runtime summary (label = value per line).
+// runtimePanelView renders the runtimes summary (label = value per line) for the runtime
+// config modal opened with c.
 func runtimePanelView(m Model, contentWidth int) string {
 	if m.width == 0 {
 		return ""
@@ -164,8 +192,11 @@ func footerHelpLine(m Model) string {
 			FooterHintCopyPath,
 			FooterSplitTabToLog,
 			stopOrDismiss,
-			fmt.Sprintf("%d×%d", m.width, m.height),
 		}
+		if launchPreviewScrollable(m) {
+			parts = append(parts, FooterHintLaunchPreviewScroll)
+		}
+		parts = append(parts, fmt.Sprintf("%d×%d", m.width, m.height))
 		return strings.Join(parts, FooterHintSep)
 	}
 	parts := []string{
@@ -180,14 +211,17 @@ func footerHelpLine(m Model) string {
 		FooterHintToggleTheme,
 		FooterHintQuit,
 		FooterHintCopyPath,
-		fmt.Sprintf("%d×%d", m.width, m.height),
 	}
+	if launchPreviewScrollable(m) {
+		parts = append(parts, FooterHintLaunchPreviewScroll)
+	}
+	parts = append(parts, fmt.Sprintf("%d×%d", m.width, m.height))
 	return strings.Join(parts, FooterHintSep)
 }
 
 // mainChromeLines counts rows in the main view block excluding the table body
-// (title, subtitle, scroll bars, runtime panel, footer). needsTableHBar and
-// needsLogHBar should match whether each horizontal track is shown.
+// (title, subtitle, scroll bars, footer). needsTableHBar and needsLogHBar should
+// match whether each horizontal track is shown.
 func mainChromeLines(m Model, needsTableHBar bool, needsLogHBar bool) int {
 	iw := m.innerWidth()
 	n := lipgloss.Height(m.appTitleBlock(iw))
@@ -203,12 +237,6 @@ func mainChromeLines(m Model, needsTableHBar bool, needsLogHBar bool) int {
 	if needsLogHBar && m.serverRunning {
 		if bar := horizontalScrollBarLine(0, iw); bar != "" {
 			n += lipgloss.Height(m.styles.footer.Render(bar))
-		}
-	}
-
-	if m.width > 0 {
-		if rp := runtimePanelView(m, iw); rp != "" {
-			n += lipgloss.Height(rp)
 		}
 	}
 
@@ -333,7 +361,7 @@ func (m Model) mainAppPlacedView() string {
 		}
 		m.hscroll.SetWidth(iw)
 		m.hscroll.SetHeight(th)
-		preview := m.launchPreviewStyled(iw)
+		preview := m.launchPreviewPaneView()
 		var parts []string
 		parts = append(parts, m.hscroll.View())
 		if m.tableNeedsHScroll {
@@ -366,13 +394,7 @@ func (m Model) mainAppPlacedView() string {
 
 	footer := m.styles.footer.Render(footerHelpLine(m))
 
-	runtimePanel := runtimePanelView(m, iw)
-
-	rows := []string{title, sub, "", body}
-	if runtimePanel != "" {
-		rows = append(rows, runtimePanel)
-	}
-	rows = append(rows, "", footer)
+	rows := []string{title, sub, "", body, "", footer}
 	if m.lastRunNote != "" {
 		rows = append(rows, m.lastRunNoteView())
 	}
@@ -429,6 +451,7 @@ func (m Model) View() tea.View {
 
 // runtimeConfigModalBlock returns the framed runtime configuration panel only
 // (no full-screen placement). Composed over the main view via [overlayCentered].
+// [runtimePanelView] is shown under the title.
 func (m Model) runtimeConfigModalBlock() string {
 	label := func(focused bool, name string) string {
 		prefix := "  "
@@ -440,6 +463,7 @@ func (m Model) runtimeConfigModalBlock() string {
 	cw := m.paramPanelContentWidth()
 	rows := []string{
 		m.modalTitleRow(cw, m.styles.portConfigTitle, "Runtime environment"),
+		runtimePanelView(m, cw),
 		m.styles.subtitle.Width(cw).Render(runtimeConfigModalSubtitle),
 		"",
 		label(m.runtimeFocus == runtimeFieldLlamaCppPath, llamacpp.EnvLlamaCppPath),

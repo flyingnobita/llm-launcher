@@ -130,6 +130,7 @@ func (m Model) openRuntimeConfig() (Model, tea.Cmd) {
 // footer status line ([Model.lastRunNote]).
 func (m Model) openRuntimeConfigFocused(focus int) (Model, tea.Cmd) {
 	m.runtimeConfigOpen = true
+	m.launchPreviewFocused = false
 	m = m.withLastRunCleared()
 	m.runtimeInputs[runtimeFieldLlamaCppPath].SetValue(os.Getenv(llamacpp.EnvLlamaCppPath))
 	m.runtimeInputs[runtimeFieldVLLMPath].SetValue(os.Getenv(llamacpp.EnvVLLMPath))

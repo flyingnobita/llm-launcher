@@ -139,6 +139,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.serverRunning = true
 		m.serverExited = false
 		m.splitLogFocused = false
+		m.launchPreviewFocused = false
 		m.serverCmd = msg.cmd
 		m.serverMsgCh = msg.ch
 		m.tbl.Focus()
@@ -163,6 +164,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, cmd
 		}
+		if m.launchPreviewFocused {
+			var cmd tea.Cmd
+			m.launchPreviewViewport, cmd = m.launchPreviewViewport.Update(msg)
+			return m, cmd
+		}
 		var cmd tea.Cmd
 		m.tbl, cmd = m.tbl.Update(msg)
 		return m, cmd
@@ -179,6 +185,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if key.Matches(msg, m.keys.Quit) {
 			return m, tea.Quit
+		}
+		if m.launchPreviewFocused && isTabKey(msg) {
+			m.launchPreviewFocused = false
+			m.tbl.Focus()
+			m = m.applyMainPaneFocusStyles()
+			return m, nil
 		}
 		if key.Matches(msg, m.keys.ConfigPort) {
 			return m.openRuntimeConfig()
@@ -273,8 +285,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m = m.applyTableSort(sel)
 			return m, nil
 		}
+		if m.launchPreviewFocused {
+			var cmd tea.Cmd
+			m.launchPreviewViewport, cmd = m.launchPreviewViewport.Update(msg)
+			return m, cmd
+		}
+		if launchPreviewScrollable(m) {
+			if key.Matches(msg, m.keys.LaunchPreviewScrollUp) {
+				m.launchPreviewViewport.ScrollUp(1)
+				return m, nil
+			}
+			if key.Matches(msg, m.keys.LaunchPreviewScrollDown) {
+				m.launchPreviewViewport.ScrollDown(1)
+				return m, nil
+			}
+		}
+		if !m.loading && len(m.files) > 0 && launchPreviewScrollable(m) && isTabKey(msg) {
+			m.launchPreviewFocused = true
+			m.tbl.Blur()
+			m = m.applyMainPaneFocusStyles()
+			return m, nil
+		}
 		var cmd tea.Cmd
 		m.tbl, cmd = m.tbl.Update(msg)
+		m = m.withLaunchPreviewSynced()
 		return m, cmd
 	}
 
@@ -373,6 +407,7 @@ func (m Model) updateServerSplitTableKeys(msg tea.KeyPressMsg) (Model, tea.Cmd) 
 	}
 	var cmd tea.Cmd
 	m.tbl, cmd = m.tbl.Update(msg)
+	m = m.withLaunchPreviewSynced()
 	return m, cmd
 }
 

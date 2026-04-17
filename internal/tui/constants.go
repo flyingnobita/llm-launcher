@@ -39,6 +39,14 @@ const (
 	// serverLogSeparatorLines is extra body rows between the table and log in split
 	// mode (0 = panes are adjacent).
 	serverLogSeparatorLines = 0
+
+	// launchPreviewVisibleLines is the number of visible text rows inside the launch
+	// command preview (the bordered viewport outer height adds the frame; see syncLaunchPreviewViewport).
+	launchPreviewVisibleLines = 4
+
+	// shellDisplayArgIndent is the leading spaces for multiline shell display lines after
+	// the first argv line (launch preview and clipboard; split-pane log uses "+ " instead).
+	shellDisplayArgIndent = "  "
 )
 
 // Column-width defaults for the model table.
@@ -95,6 +103,12 @@ const (
 	FooterKeyCopyPath  = "enter"
 	FooterDescCopyPath = "copy cmd"
 	FooterHintCopyPath = FooterKeyCopyPath + ": " + FooterDescCopyPath
+
+	// Launch preview scroll (when the command exceeds the preview height).
+	FooterKeyLaunchPreviewScrollUp   = "["
+	FooterKeyLaunchPreviewScrollDown = "]"
+	FooterDescLaunchPreviewScroll    = "scroll cmd"
+	FooterHintLaunchPreviewScroll    = FooterKeyLaunchPreviewScrollUp + "/" + FooterKeyLaunchPreviewScrollDown + ": " + FooterDescLaunchPreviewScroll
 
 	// CopyCommandFeedback* are shown below the footer after Enter copies the launch command.
 	CopyCommandFeedbackSuccess = "Command copied to clipboard"

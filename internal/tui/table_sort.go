@@ -80,7 +80,7 @@ func compareModelFilesCol(a, b llamacpp.ModelFile, col int) int {
 // applyTableSort sorts [Model.files] according to [Model.sortCol] and [Model.sortDesc], rebuilds the
 // table, and moves the cursor to the row whose path matched selPath when non-empty.
 //
-// The cursor must be restored BEFORE layoutTable because [launchPreviewLineCount]
+// The cursor must be restored BEFORE layoutTable because [Model.launchPreviewPaneLayoutHeight]
 // inside layoutTable reads [Model.SelectedModel] to size the table body. A stale
 // cursor after reorder points at a different model whose preview command may wrap
 // to a different number of lines, shifting the table height by 1 row.
