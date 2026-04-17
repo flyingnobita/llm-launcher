@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/flyingnobita/llml/internal/llamacpp"
+	"github.com/flyingnobita/llml/internal/models"
 )
 
 func main() {
@@ -21,7 +21,7 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
-	err := llamacpp.DumpGGUF(os.Stdout, args[0], llamacpp.DumpGGUFOptions{Tensors: *tensors})
+	err := models.DumpGGUF(os.Stdout, args[0], models.DumpGGUFOptions{Tensors: *tensors})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "gguf-dump: %v\n", err)
 		os.Exit(1)

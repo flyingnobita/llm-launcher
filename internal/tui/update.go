@@ -7,7 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/atotto/clipboard"
 
-	"github.com/flyingnobita/llml/internal/llamacpp"
+	"github.com/flyingnobita/llml/internal/models"
 )
 
 // Update implements tea.Model.
@@ -245,12 +245,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m = m.withLastRunCleared()
 			params, _ := loadModelParamsForRun(p)
 			if mode == 2 {
-				if be == llamacpp.BackendVLLM {
+				if be == models.BackendVLLM {
 					return m, runVLLMServerCmd(p, m.runtime, params)
 				}
 				return m, runLlamaServerCmd(p, m.runtime, params)
 			}
-			if be == llamacpp.BackendVLLM {
+			if be == models.BackendVLLM {
 				return m, runVLLMServerSplitCmd(p, m.runtime, params)
 			}
 			return m, runLlamaServerSplitCmd(p, m.runtime, params)

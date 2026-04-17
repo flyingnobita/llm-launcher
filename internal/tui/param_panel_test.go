@@ -7,7 +7,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/flyingnobita/llml/internal/llamacpp"
+	"github.com/flyingnobita/llml/internal/models"
 )
 
 func TestParseEnvLine_expandTilde(t *testing.T) {
@@ -143,8 +143,8 @@ func TestParamPanelViewIncludesMainAppBackdrop(t *testing.T) {
 	m.width = 100
 	m.height = 40
 	m.loading = false
-	m.files = []llamacpp.ModelFile{
-		{Backend: llamacpp.BackendLlama, Path: "/x.gguf", Name: "x", Size: 1, ModTime: time.Unix(0, 0)},
+	m.files = []models.ModelFile{
+		{Backend: models.BackendLlama, Path: "/x.gguf", Name: "x", Size: 1, ModTime: time.Unix(0, 0)},
 	}
 	m = m.layoutTable()
 	m.paramPanelOpen = true

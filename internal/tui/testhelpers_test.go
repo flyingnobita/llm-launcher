@@ -1,6 +1,6 @@
 package tui
 
-import "github.com/flyingnobita/llml/internal/llamacpp"
+import "github.com/flyingnobita/llml/internal/models"
 
 // newTestModel returns a Model suitable for unit tests: fixed dimensions, not loading, empty table.
 func newTestModel() Model {
@@ -8,6 +8,6 @@ func newTestModel() Model {
 	m.width = 120
 	m.height = 40
 	m.loading = false
-	m.files = []llamacpp.ModelFile{}
+	m.files = []models.ModelFile{}
 	return m
 }

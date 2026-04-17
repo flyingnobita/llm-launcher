@@ -248,7 +248,7 @@ mise run check    # lint + test (run before opening a PR)
 - `cmd/llml` — entrypoint.
 - `internal/config` — `config.toml` read/write and cache helpers.
 - `internal/tui` — Bubble Tea UI.
-- `internal/llamacpp` — discovery, metadata, runtime detection.
+- `internal/models` — discovery, metadata, runtime detection.
 - `scripts/` — `gofmt-check.sh`, `precommit-docs-fix.sh`.
 
 Contributions are welcome. Please run `mise run check` before opening a pull request.

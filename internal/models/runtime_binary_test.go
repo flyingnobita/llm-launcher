@@ -1,4 +1,4 @@
-package llamacpp
+package models
 
 import (
 	"net/http"

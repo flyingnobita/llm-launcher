@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
-	"github.com/flyingnobita/llml/internal/llamacpp"
+	"github.com/flyingnobita/llml/internal/models"
 )
 
 // SchemaVersion is the current on-disk format for config.toml.
@@ -98,14 +98,14 @@ func ApplyRuntimeFromConfig(r *RuntimeConfig) {
 	if r == nil {
 		return
 	}
-	applyPathIfUnset(llamacpp.EnvLlamaCppPath, r.LlamaCppPath)
-	applyPathIfUnset(llamacpp.EnvVLLMPath, r.VLLMPath)
-	applyPathIfUnset(llamacpp.EnvVLLMVenv, r.VLLMVenv)
-	if r.LlamaServerPort != nil && os.Getenv(llamacpp.EnvLlamaServerPort) == "" {
-		os.Setenv(llamacpp.EnvLlamaServerPort, strconv.Itoa(*r.LlamaServerPort))
+	applyPathIfUnset(models.EnvLlamaCppPath, r.LlamaCppPath)
+	applyPathIfUnset(models.EnvVLLMPath, r.VLLMPath)
+	applyPathIfUnset(models.EnvVLLMVenv, r.VLLMVenv)
+	if r.LlamaServerPort != nil && os.Getenv(models.EnvLlamaServerPort) == "" {
+		os.Setenv(models.EnvLlamaServerPort, strconv.Itoa(*r.LlamaServerPort))
 	}
-	if r.VLLMServerPort != nil && os.Getenv(llamacpp.EnvVLLMServerPort) == "" {
-		os.Setenv(llamacpp.EnvVLLMServerPort, strconv.Itoa(*r.VLLMServerPort))
+	if r.VLLMServerPort != nil && os.Getenv(models.EnvVLLMServerPort) == "" {
+		os.Setenv(models.EnvVLLMServerPort, strconv.Itoa(*r.VLLMServerPort))
 	}
 }
 
@@ -114,7 +114,7 @@ func applyPathIfUnset(key, value string) {
 	if v == "" || os.Getenv(key) != "" {
 		return
 	}
-	v = filepath.Clean(llamacpp.ExpandTildePath(v))
+	v = filepath.Clean(models.ExpandTildePath(v))
 	if v == "" || v == "." {
 		return
 	}
@@ -124,29 +124,29 @@ func applyPathIfUnset(key, value string) {
 // RuntimeFromEnv builds a RuntimeConfig from the current process environment (for writing).
 func RuntimeFromEnv() RuntimeConfig {
 	var r RuntimeConfig
-	if v := strings.TrimSpace(os.Getenv(llamacpp.EnvLlamaCppPath)); v != "" {
-		r.LlamaCppPath = filepath.Clean(llamacpp.ExpandTildePath(v))
+	if v := strings.TrimSpace(os.Getenv(models.EnvLlamaCppPath)); v != "" {
+		r.LlamaCppPath = filepath.Clean(models.ExpandTildePath(v))
 	}
-	if v := strings.TrimSpace(os.Getenv(llamacpp.EnvVLLMPath)); v != "" {
-		r.VLLMPath = filepath.Clean(llamacpp.ExpandTildePath(v))
+	if v := strings.TrimSpace(os.Getenv(models.EnvVLLMPath)); v != "" {
+		r.VLLMPath = filepath.Clean(models.ExpandTildePath(v))
 	}
-	if v := strings.TrimSpace(os.Getenv(llamacpp.EnvVLLMVenv)); v != "" {
-		r.VLLMVenv = filepath.Clean(llamacpp.ExpandTildePath(v))
+	if v := strings.TrimSpace(os.Getenv(models.EnvVLLMVenv)); v != "" {
+		r.VLLMVenv = filepath.Clean(models.ExpandTildePath(v))
 	}
-	if v := strings.TrimSpace(os.Getenv(llamacpp.EnvLlamaServerPort)); v != "" {
+	if v := strings.TrimSpace(os.Getenv(models.EnvLlamaServerPort)); v != "" {
 		if p, err := strconv.Atoi(v); err == nil && p > 0 && p <= 65535 {
 			r.LlamaServerPort = &p
 		}
 	} else {
-		p := llamacpp.ListenPort()
+		p := models.ListenPort()
 		r.LlamaServerPort = &p
 	}
-	if v := strings.TrimSpace(os.Getenv(llamacpp.EnvVLLMServerPort)); v != "" {
+	if v := strings.TrimSpace(os.Getenv(models.EnvVLLMServerPort)); v != "" {
 		if p, err := strconv.Atoi(v); err == nil && p > 0 && p <= 65535 {
 			r.VLLMServerPort = &p
 		}
 	} else {
-		p := llamacpp.VLLMPort()
+		p := models.VLLMPort()
 		r.VLLMServerPort = &p
 	}
 	return r
@@ -169,12 +169,12 @@ func ExtraModelPathsFromEnv() []string {
 }
 
 // MergeExtraRoots combines discovery extra paths from config with env-only extras for Discover options.
-// Config file paths are merged with env in [llamacpp.MergeSearchRoots] via Options.ExtraRoots.
+// Config file paths are merged with env in [models.MergeSearchRoots] via Options.ExtraRoots.
 func MergeExtraRoots(discoveryExtra, envExtra []string) []string {
 	seen := make(map[string]struct{})
 	var out []string
 	add := func(p string) {
-		p = filepath.Clean(llamacpp.ExpandTildePath(strings.TrimSpace(p)))
+		p = filepath.Clean(models.ExpandTildePath(strings.TrimSpace(p)))
 		if p == "" || p == "." {
 			return
 		}
@@ -194,9 +194,9 @@ func MergeExtraRoots(discoveryExtra, envExtra []string) []string {
 }
 
 // ModelEntryFromFile converts a discovered model to a cache entry.
-func ModelEntryFromFile(f llamacpp.ModelFile) ModelEntry {
+func ModelEntryFromFile(f models.ModelFile) ModelEntry {
 	be := "llama"
-	if f.Backend == llamacpp.BackendVLLM {
+	if f.Backend == models.BackendVLLM {
 		be = "vllm"
 	}
 	return ModelEntry{
@@ -209,22 +209,22 @@ func ModelEntryFromFile(f llamacpp.ModelFile) ModelEntry {
 	}
 }
 
-// ToModelFile converts a cache entry to [llamacpp.ModelFile].
-func (e ModelEntry) ToModelFile() (llamacpp.ModelFile, error) {
-	var be llamacpp.ModelBackend
+// ToModelFile converts a cache entry to [models.ModelFile].
+func (e ModelEntry) ToModelFile() (models.ModelFile, error) {
+	var be models.ModelBackend
 	switch strings.ToLower(strings.TrimSpace(e.Backend)) {
 	case "llama", "":
-		be = llamacpp.BackendLlama
+		be = models.BackendLlama
 	case "vllm":
-		be = llamacpp.BackendVLLM
+		be = models.BackendVLLM
 	default:
-		return llamacpp.ModelFile{}, fmt.Errorf("unknown backend %q", e.Backend)
+		return models.ModelFile{}, fmt.Errorf("unknown backend %q", e.Backend)
 	}
 	path := filepath.Clean(e.Path)
 	if path == "" || path == "." {
-		return llamacpp.ModelFile{}, errors.New("empty model path")
+		return models.ModelFile{}, errors.New("empty model path")
 	}
-	return llamacpp.ModelFile{
+	return models.ModelFile{
 		Backend:    be,
 		Path:       path,
 		Name:       e.Name,
@@ -235,8 +235,8 @@ func (e ModelEntry) ToModelFile() (llamacpp.ModelFile, error) {
 }
 
 // ModelFilesFromEntries converts cache entries to model files, skipping invalid rows.
-func ModelFilesFromEntries(entries []ModelEntry) []llamacpp.ModelFile {
-	var out []llamacpp.ModelFile
+func ModelFilesFromEntries(entries []ModelEntry) []models.ModelFile {
+	var out []models.ModelFile
 	for _, e := range entries {
 		f, err := e.ToModelFile()
 		if err != nil {
@@ -248,8 +248,8 @@ func ModelFilesFromEntries(entries []ModelEntry) []llamacpp.ModelFile {
 }
 
 // FilterExistingPaths keeps only models whose path still exists on disk.
-func FilterExistingPaths(files []llamacpp.ModelFile) []llamacpp.ModelFile {
-	var out []llamacpp.ModelFile
+func FilterExistingPaths(files []models.ModelFile) []models.ModelFile {
+	var out []models.ModelFile
 	for _, f := range files {
 		if _, err := os.Stat(f.Path); err != nil {
 			continue
@@ -260,7 +260,7 @@ func FilterExistingPaths(files []llamacpp.ModelFile) []llamacpp.ModelFile {
 }
 
 // BuildConfig builds a full Config for writing from runtime, discovery, and models.
-func BuildConfig(runtime RuntimeConfig, discovery DiscoveryConfig, files []llamacpp.ModelFile) Config {
+func BuildConfig(runtime RuntimeConfig, discovery DiscoveryConfig, files []models.ModelFile) Config {
 	c := Config{
 		SchemaVersion: SchemaVersion,
 		Runtime:       runtime,

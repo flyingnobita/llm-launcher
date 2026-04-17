@@ -4,7 +4,7 @@ import (
 	"github.com/mattn/go-runewidth"
 
 	btable "charm.land/bubbles/v2/table"
-	"github.com/flyingnobita/llml/internal/llamacpp"
+	"github.com/flyingnobita/llml/internal/models"
 )
 
 // Unicode sort indicators (ascending / descending).
@@ -20,7 +20,7 @@ func formatSortColumnTitle(base string, colIdx, sortCol, maxW int, sortDesc bool
 		return ""
 	}
 	if colIdx != sortCol {
-		return llamacpp.TruncateRunes(base, maxW)
+		return models.TruncateRunes(base, maxW)
 	}
 	suffix := " " + sortIndicatorAsc
 	if sortDesc {
@@ -28,13 +28,13 @@ func formatSortColumnTitle(base string, colIdx, sortCol, maxW int, sortDesc bool
 	}
 	sw := runewidth.StringWidth(suffix)
 	if sw >= maxW {
-		return llamacpp.TruncateRunes(suffix, maxW)
+		return models.TruncateRunes(suffix, maxW)
 	}
 	baseMax := maxW - sw
 	if baseMax < 2 {
-		return llamacpp.TruncateRunes(suffix, maxW)
+		return models.TruncateRunes(suffix, maxW)
 	}
-	truncated := llamacpp.TruncateRunes(base, baseMax)
+	truncated := models.TruncateRunes(base, baseMax)
 	return truncated + suffix
 }
 
@@ -44,7 +44,7 @@ func formatSortColumnTitle(base string, colIdx, sortCol, maxW int, sortDesc bool
 // takes remaining space after fixed columns (File Name, Model ID, Runtime, Path, Size,
 // Last modified). sortCol and sortDesc control the ▲/▼ indicator on the active
 // column title.
-func tableColumns(totalWidth int, files []llamacpp.ModelFile, homeDir string, sortCol int, sortDesc bool) []btable.Column {
+func tableColumns(totalWidth int, files []models.ModelFile, homeDir string, sortCol int, sortDesc bool) []btable.Column {
 	if totalWidth < minTerminalWidth {
 		totalWidth = minTerminalWidth
 	}
@@ -57,10 +57,10 @@ func tableColumns(totalWidth int, files []llamacpp.ModelFile, homeDir string, so
 		if w := runewidth.StringWidth(f.Name); w > longestName {
 			longestName = w
 		}
-		if w := runewidth.StringWidth(llamacpp.InferModelID(f.Path)); w > longestID {
+		if w := runewidth.StringWidth(models.InferModelID(f.Path)); w > longestID {
 			longestID = w
 		}
-		if w := runewidth.StringWidth(llamacpp.FormatModelFolderDisplay(f.Path, homeDir)); w > longestPath {
+		if w := runewidth.StringWidth(models.FormatModelFolderDisplay(f.Path, homeDir)); w > longestPath {
 			longestPath = w
 		}
 	}
@@ -111,19 +111,19 @@ func tableContentMinWidth(cols []btable.Column) int {
 
 // buildTableRows converts ModelFile entries into display rows using the
 // column widths computed by tableColumns. Cells are truncated to fit.
-func buildTableRows(files []llamacpp.ModelFile, cols []btable.Column, homeDir string) []btable.Row {
+func buildTableRows(files []models.ModelFile, cols []btable.Column, homeDir string) []btable.Row {
 	if len(cols) < 6 {
 		return nil
 	}
 	rows := make([]btable.Row, len(files))
 	for i, f := range files {
 		rows[i] = btable.Row{
-			llamacpp.TruncateRunes(f.Name, cols[0].Width-1),
-			llamacpp.TruncateRunes(llamacpp.InferModelID(f.Path), cols[1].Width-1),
-			llamacpp.TruncateRunes(llamacpp.FormatRuntimeLabel(f.Backend), cols[2].Width-1),
-			llamacpp.TruncateRunes(llamacpp.FormatModelFolderDisplay(f.Path, homeDir), cols[3].Width-1),
-			llamacpp.FormatSize(f.Size),
-			llamacpp.FormatModTime(f.ModTime),
+			models.TruncateRunes(f.Name, cols[0].Width-1),
+			models.TruncateRunes(models.InferModelID(f.Path), cols[1].Width-1),
+			models.TruncateRunes(models.FormatRuntimeLabel(f.Backend), cols[2].Width-1),
+			models.TruncateRunes(models.FormatModelFolderDisplay(f.Path, homeDir), cols[3].Width-1),
+			models.FormatSize(f.Size),
+			models.FormatModTime(f.ModTime),
 		}
 	}
 	return rows

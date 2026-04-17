@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flyingnobita/llml/internal/llamacpp"
+	"github.com/flyingnobita/llml/internal/models"
 )
 
 func TestConfigRoundTrip(t *testing.T) {
@@ -69,21 +69,21 @@ func TestValidForCache(t *testing.T) {
 }
 
 func TestApplyRuntimeFromConfig_envWins(t *testing.T) {
-	t.Setenv(llamacpp.EnvLlamaCppPath, "/from-env")
-	t.Cleanup(func() { _ = os.Unsetenv(llamacpp.EnvLlamaCppPath) })
+	t.Setenv(models.EnvLlamaCppPath, "/from-env")
+	t.Cleanup(func() { _ = os.Unsetenv(models.EnvLlamaCppPath) })
 
 	ApplyRuntimeFromConfig(&RuntimeConfig{LlamaCppPath: "/from-toml"})
-	if os.Getenv(llamacpp.EnvLlamaCppPath) != "/from-env" {
-		t.Fatalf("env should win, got %q", os.Getenv(llamacpp.EnvLlamaCppPath))
+	if os.Getenv(models.EnvLlamaCppPath) != "/from-env" {
+		t.Fatalf("env should win, got %q", os.Getenv(models.EnvLlamaCppPath))
 	}
 }
 
 func TestApplyRuntimeFromConfig_tomlFallback(t *testing.T) {
-	_ = os.Unsetenv(llamacpp.EnvLlamaCppPath)
-	t.Cleanup(func() { _ = os.Unsetenv(llamacpp.EnvLlamaCppPath) })
+	_ = os.Unsetenv(models.EnvLlamaCppPath)
+	t.Cleanup(func() { _ = os.Unsetenv(models.EnvLlamaCppPath) })
 
 	ApplyRuntimeFromConfig(&RuntimeConfig{LlamaCppPath: "/from-toml"})
-	got := os.Getenv(llamacpp.EnvLlamaCppPath)
+	got := os.Getenv(models.EnvLlamaCppPath)
 	if got == "" {
 		t.Fatal("expected TOML path applied")
 	}
@@ -99,7 +99,7 @@ func TestFilterExistingPaths(t *testing.T) {
 	if err := os.WriteFile(gguf, []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	files := []llamacpp.ModelFile{
+	files := []models.ModelFile{
 		{Path: gguf, Name: "m.gguf"},
 		{Path: filepath.Join(dir, "missing.gguf"), Name: "missing.gguf"},
 	}
@@ -116,7 +116,7 @@ func TestModelEntryToModelFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.Backend != llamacpp.BackendVLLM {
+	if f.Backend != models.BackendVLLM {
 		t.Fatalf("backend %v", f.Backend)
 	}
 }

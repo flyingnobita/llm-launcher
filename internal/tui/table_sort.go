@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/flyingnobita/llml/internal/llamacpp"
+	"github.com/flyingnobita/llml/internal/models"
 )
 
 // Table sort column indices (must match [tableColumns] order: File Name, Model ID, Runtime, Path, Size, Last modified).
@@ -18,11 +18,11 @@ const (
 	tableSortColCount
 )
 
-// defaultSortCol matches discovery order ([llamacpp.Discover] sorts by path ascending).
+// defaultSortCol matches discovery order ([models.Discover] sorts by path ascending).
 const defaultSortCol = tableSortColPath
 
 // sortModelFiles reorders files in place with a stable sort by column and direction.
-func sortModelFiles(files []llamacpp.ModelFile, col int, desc bool) {
+func sortModelFiles(files []models.ModelFile, col int, desc bool) {
 	if len(files) < 2 {
 		return
 	}
@@ -46,12 +46,12 @@ func clampSortCol(col int) int {
 	return col
 }
 
-func compareModelFilesCol(a, b llamacpp.ModelFile, col int) int {
+func compareModelFilesCol(a, b models.ModelFile, col int) int {
 	switch col {
 	case tableSortColFileName:
 		return strings.Compare(a.Name, b.Name)
 	case tableSortColID:
-		return strings.Compare(llamacpp.InferModelID(a.Path), llamacpp.InferModelID(b.Path))
+		return strings.Compare(models.InferModelID(a.Path), models.InferModelID(b.Path))
 	case tableSortColRuntime:
 		return int(a.Backend) - int(b.Backend)
 	case tableSortColPath:

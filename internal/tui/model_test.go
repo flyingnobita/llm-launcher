@@ -6,7 +6,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/flyingnobita/llml/internal/llamacpp"
+	"github.com/flyingnobita/llml/internal/models"
 	"github.com/mattn/go-runewidth"
 )
 
@@ -14,9 +14,9 @@ func TestLayoutTable_wideTerminalFitsViewport(t *testing.T) {
 	m := New()
 	m.width = 203
 	m.height = 80
-	m.files = []llamacpp.ModelFile{
+	m.files = []models.ModelFile{
 		{
-			Backend: llamacpp.BackendLlama,
+			Backend: models.BackendLlama,
 			Path:    "/x",
 			Name:    "m",
 			Size:    1,
@@ -35,10 +35,10 @@ func TestModelsLoadedSelectsFirstRow(t *testing.T) {
 	m.width = 120
 	m.height = 40
 	// Resolved llama-server path present so the missing-runtime footer line is not set for GGUF rows.
-	m.runtime = llamacpp.RuntimeInfo{LlamaServerPath: "/fake/llama-server"}
-	files := []llamacpp.ModelFile{
-		{Backend: llamacpp.BackendLlama, Path: "/a.gguf", Name: "a", Size: 1, ModTime: time.Unix(0, 0)},
-		{Backend: llamacpp.BackendLlama, Path: "/b.gguf", Name: "b", Size: 1, ModTime: time.Unix(0, 0)},
+	m.runtime = models.RuntimeInfo{LlamaServerPath: "/fake/llama-server"}
+	files := []models.ModelFile{
+		{Backend: models.BackendLlama, Path: "/a.gguf", Name: "a", Size: 1, ModTime: time.Unix(0, 0)},
+		{Backend: models.BackendLlama, Path: "/b.gguf", Name: "b", Size: 1, ModTime: time.Unix(0, 0)},
 	}
 	next, cmd := m.Update(modelsLoadedMsg{files: files})
 	if cmd != nil {
@@ -55,9 +55,9 @@ func TestModelsLoaded_FooterErrorWhenGGUFWithoutLlamaServer(t *testing.T) {
 	m := New()
 	m.width = 120
 	m.height = 40
-	m.runtime = llamacpp.RuntimeInfo{}
-	files := []llamacpp.ModelFile{
-		{Backend: llamacpp.BackendLlama, Path: "/a.gguf", Name: "a", Size: 1, ModTime: time.Unix(0, 0)},
+	m.runtime = models.RuntimeInfo{}
+	files := []models.ModelFile{
+		{Backend: models.BackendLlama, Path: "/a.gguf", Name: "a", Size: 1, ModTime: time.Unix(0, 0)},
 	}
 	next, cmd := m.Update(modelsLoadedMsg{files: files})
 	if cmd != nil {
@@ -77,9 +77,9 @@ func TestModelsLoaded_FooterErrorWhenVLLMWithoutVllm(t *testing.T) {
 	m := New()
 	m.width = 120
 	m.height = 40
-	m.runtime = llamacpp.RuntimeInfo{}
-	files := []llamacpp.ModelFile{
-		{Backend: llamacpp.BackendVLLM, Path: "/m", Name: "m", Size: 1, ModTime: time.Unix(0, 0)},
+	m.runtime = models.RuntimeInfo{}
+	files := []models.ModelFile{
+		{Backend: models.BackendVLLM, Path: "/m", Name: "m", Size: 1, ModTime: time.Unix(0, 0)},
 	}
 	next, cmd := m.Update(modelsLoadedMsg{files: files})
 	if cmd != nil {
@@ -99,10 +99,10 @@ func TestModelsLoaded_FooterErrorBothBackendsMissing(t *testing.T) {
 	m := New()
 	m.width = 120
 	m.height = 40
-	m.runtime = llamacpp.RuntimeInfo{}
-	files := []llamacpp.ModelFile{
-		{Backend: llamacpp.BackendLlama, Path: "/a.gguf", Name: "a", Size: 1, ModTime: time.Unix(0, 0)},
-		{Backend: llamacpp.BackendVLLM, Path: "/m", Name: "m", Size: 1, ModTime: time.Unix(0, 0)},
+	m.runtime = models.RuntimeInfo{}
+	files := []models.ModelFile{
+		{Backend: models.BackendLlama, Path: "/a.gguf", Name: "a", Size: 1, ModTime: time.Unix(0, 0)},
+		{Backend: models.BackendVLLM, Path: "/m", Name: "m", Size: 1, ModTime: time.Unix(0, 0)},
 	}
 	next, cmd := m.Update(modelsLoadedMsg{files: files})
 	if cmd != nil {
@@ -188,9 +188,9 @@ func TestMainViewShowsTitleAndFooterNavHint(t *testing.T) {
 	m.width = 100
 	m.height = 32
 	m.loading = false
-	m.files = []llamacpp.ModelFile{
-		{Backend: llamacpp.BackendLlama, Path: "/a.gguf", Name: "a", Size: 1, ModTime: time.Unix(0, 0)},
-		{Backend: llamacpp.BackendLlama, Path: "/b.gguf", Name: "b", Size: 1, ModTime: time.Unix(0, 0)},
+	m.files = []models.ModelFile{
+		{Backend: models.BackendLlama, Path: "/a.gguf", Name: "a", Size: 1, ModTime: time.Unix(0, 0)},
+		{Backend: models.BackendLlama, Path: "/b.gguf", Name: "b", Size: 1, ModTime: time.Unix(0, 0)},
 	}
 	m = m.layoutTable()
 
@@ -210,9 +210,9 @@ func TestSplitViewShowsTitleAndFooterHints(t *testing.T) {
 	m.loading = false
 	m.serverRunning = true
 	m.splitLogFocused = false
-	m.files = []llamacpp.ModelFile{
-		{Backend: llamacpp.BackendLlama, Path: "/a.gguf", Name: "a", Size: 1, ModTime: time.Unix(0, 0)},
-		{Backend: llamacpp.BackendLlama, Path: "/b.gguf", Name: "b", Size: 1, ModTime: time.Unix(0, 0)},
+	m.files = []models.ModelFile{
+		{Backend: models.BackendLlama, Path: "/a.gguf", Name: "a", Size: 1, ModTime: time.Unix(0, 0)},
+		{Backend: models.BackendLlama, Path: "/b.gguf", Name: "b", Size: 1, ModTime: time.Unix(0, 0)},
 	}
 	for i := 0; i < 30; i++ {
 		m = m.appendServerLogLine("log line")

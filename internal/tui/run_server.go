@@ -12,7 +12,7 @@ import (
 	"sync"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/flyingnobita/llml/internal/llamacpp"
+	"github.com/flyingnobita/llml/internal/models"
 )
 
 // shellSingleQuoted returns s wrapped in single quotes for POSIX sh (safe for paths with spaces).
@@ -48,7 +48,7 @@ func llamaCommandLine(bin, modelPath string, port int, params ModelParams) strin
 
 // vllmCommandWords returns escaped shell tokens for vllm serve (same order as the executed argv).
 func vllmCommandWords(bin, modelDir string, port int, params ModelParams) []string {
-	served := llamacpp.InferModelID(modelDir)
+	served := models.InferModelID(modelDir)
 	words := []string{
 		shellSingleQuoted(bin),
 		"serve",
@@ -65,7 +65,7 @@ func vllmCommandWords(bin, modelDir string, port int, params ModelParams) []stri
 }
 
 // vllmCommandLine builds the vllm serve invocation: model dir, --served-model-name from
-// [llamacpp.InferModelID] (same as the Model ID column), --port, then profile argv.
+// [models.InferModelID] (same as the Model ID column), --port, then profile argv.
 func vllmCommandLine(bin, modelDir string, port int, params ModelParams) string {
 	envP := shellEnvPrefix(params.Env)
 	words := vllmCommandWords(bin, modelDir, port, params)
@@ -74,7 +74,7 @@ func vllmCommandLine(bin, modelDir string, port int, params ModelParams) string 
 
 // errVLLMNotFound is returned when ResolveVLLMPath finds no vllm binary.
 func errVLLMNotFound() error {
-	return fmt.Errorf("vllm not found; set %s (project dir; we use vllm or .venv/bin/vllm) or %s (venv root), or install vllm on PATH", llamacpp.EnvVLLMPath, llamacpp.EnvVLLMVenv)
+	return fmt.Errorf("vllm not found; set %s (project dir; we use vllm or .venv/bin/vllm) or %s (venv root), or install vllm on PATH", models.EnvVLLMPath, models.EnvVLLMVenv)
 }
 
 // formatLlamaServerInvocation is a multi-line, copy-paste safe command (with a leading "+ " on the
@@ -91,7 +91,7 @@ func formatVLLMServerInvocation(bin, modelDir string, port int, activateScript s
 
 // splitServerInvocationEcho returns the same string as the first message written to the split-pane
 // log when R is pressed (the multi-line "+ ..." echo). It uses the selected row, active parameter
-// profile, and [llamacpp.RuntimeInfo] the same way as [runLlamaServerSplitCmd] / [runVLLMServerSplitCmd].
+// profile, and [models.RuntimeInfo] the same way as [runLlamaServerSplitCmd] / [runVLLMServerSplitCmd].
 func splitServerInvocationEcho(m Model) string {
 	modelPath, be := m.SelectedModel()
 	if modelPath == "" {
@@ -103,19 +103,19 @@ func splitServerInvocationEcho(m Model) string {
 	}
 	rt := m.runtime
 	switch be {
-	case llamacpp.BackendVLLM:
-		bin := llamacpp.ResolveVLLMPath(rt)
-		activate := llamacpp.ResolveVLLMActivateScript(bin)
+	case models.BackendVLLM:
+		bin := models.ResolveVLLMPath(rt)
+		activate := models.ResolveVLLMActivateScript(bin)
 		if bin == "" {
 			bin = "vllm"
 		}
-		return formatVLLMServerInvocation(bin, modelPath, llamacpp.VLLMPort(), activate, params)
+		return formatVLLMServerInvocation(bin, modelPath, models.VLLMPort(), activate, params)
 	default:
-		bin := llamacpp.ResolveLlamaServerPath(rt)
+		bin := models.ResolveLlamaServerPath(rt)
 		if bin == "" {
 			bin = "llama-server"
 		}
-		return formatLlamaServerInvocation(bin, modelPath, llamacpp.ListenPort(), params)
+		return formatLlamaServerInvocation(bin, modelPath, models.ListenPort(), params)
 	}
 }
 
@@ -133,18 +133,18 @@ func launchPreviewCommandLine(m Model) string {
 	}
 	rt := m.runtime
 	switch be {
-	case llamacpp.BackendVLLM:
-		bin := llamacpp.ResolveVLLMPath(rt)
+	case models.BackendVLLM:
+		bin := models.ResolveVLLMPath(rt)
 		if bin == "" {
 			bin = "vllm"
 		}
-		return shellCommandDisplayMultiline(false, "", params.Env, vllmCommandWords(bin, modelPath, llamacpp.VLLMPort(), params))
+		return shellCommandDisplayMultiline(false, "", params.Env, vllmCommandWords(bin, modelPath, models.VLLMPort(), params))
 	default:
-		bin := llamacpp.ResolveLlamaServerPath(rt)
+		bin := models.ResolveLlamaServerPath(rt)
 		if bin == "" {
 			bin = "llama-server"
 		}
-		return shellCommandDisplayMultiline(false, "", params.Env, llamaCommandWords(bin, modelPath, llamacpp.ListenPort(), params))
+		return shellCommandDisplayMultiline(false, "", params.Env, llamaCommandWords(bin, modelPath, models.ListenPort(), params))
 	}
 }
 
@@ -194,16 +194,16 @@ func unixVLLMSplitScript(bin, modelDir string, port int, activateScript string, 
 // until you press Enter after the server exits; then Bubble Tea restores the alternate screen.
 // Read from /dev/tty first: some servers (e.g. vLLM) leave stdin unusable (EIO), but the controlling tty still works.
 // Windows runs llama-server directly (no pause); use scrollback or an external terminal if needed.
-func runLlamaServerCmd(modelPath string, rt llamacpp.RuntimeInfo, params ModelParams) tea.Cmd {
-	bin := llamacpp.ResolveLlamaServerPath(rt)
+func runLlamaServerCmd(modelPath string, rt models.RuntimeInfo, params ModelParams) tea.Cmd {
+	bin := models.ResolveLlamaServerPath(rt)
 	if bin == "" {
 		return func() tea.Msg {
 			return runServerErrMsg{
-				err: fmt.Errorf("llama-server not found; set %s or install on PATH", llamacpp.EnvLlamaCppPath),
+				err: fmt.Errorf("llama-server not found; set %s or install on PATH", models.EnvLlamaCppPath),
 			}
 		}
 	}
-	port := llamacpp.ListenPort()
+	port := models.ListenPort()
 	var c *exec.Cmd
 	if runtime.GOOS == "windows" {
 		args := []string{
@@ -222,12 +222,12 @@ func runLlamaServerCmd(modelPath string, rt llamacpp.RuntimeInfo, params ModelPa
 	})
 }
 
-func newLlamaSplitCmd(modelPath string, rt llamacpp.RuntimeInfo, params ModelParams) (*exec.Cmd, error) {
-	bin := llamacpp.ResolveLlamaServerPath(rt)
+func newLlamaSplitCmd(modelPath string, rt models.RuntimeInfo, params ModelParams) (*exec.Cmd, error) {
+	bin := models.ResolveLlamaServerPath(rt)
 	if bin == "" {
-		return nil, fmt.Errorf("llama-server not found; set %s or install on PATH", llamacpp.EnvLlamaCppPath)
+		return nil, fmt.Errorf("llama-server not found; set %s or install on PATH", models.EnvLlamaCppPath)
 	}
-	port := llamacpp.ListenPort()
+	port := models.ListenPort()
 	args := []string{
 		"-m", modelPath,
 		"--alias", llamaServerAlias(modelPath),
@@ -239,13 +239,13 @@ func newLlamaSplitCmd(modelPath string, rt llamacpp.RuntimeInfo, params ModelPar
 	return c, nil
 }
 
-func newVLLMSplitCmd(modelDir string, rt llamacpp.RuntimeInfo, params ModelParams) (*exec.Cmd, error) {
-	bin := llamacpp.ResolveVLLMPath(rt)
+func newVLLMSplitCmd(modelDir string, rt models.RuntimeInfo, params ModelParams) (*exec.Cmd, error) {
+	bin := models.ResolveVLLMPath(rt)
 	if bin == "" {
 		return nil, errVLLMNotFound()
 	}
-	port := llamacpp.VLLMPort()
-	activate := llamacpp.ResolveVLLMActivateScript(bin)
+	port := models.VLLMPort()
+	activate := models.ResolveVLLMActivateScript(bin)
 	if runtime.GOOS == "windows" {
 		if activate != "" {
 			return nil, fmt.Errorf("vLLM venv activation is not supported on Windows from this app; run vllm from an activated shell or add vllm to PATH (detected %s)", activate)
@@ -300,15 +300,15 @@ func streamSplitServerCmd(cmd *exec.Cmd, ch chan tea.Msg) {
 }
 
 // runLlamaServerSplitCmd starts llama-server in split-pane mode (log streaming into the TUI).
-func runLlamaServerSplitCmd(modelPath string, rt llamacpp.RuntimeInfo, params ModelParams) tea.Cmd {
+func runLlamaServerSplitCmd(modelPath string, rt models.RuntimeInfo, params ModelParams) tea.Cmd {
 	return func() tea.Msg {
 		cmd, err := newLlamaSplitCmd(modelPath, rt, params)
 		if err != nil {
 			return runServerErrMsg{err: err}
 		}
 		ch := make(chan tea.Msg, 64)
-		bin := llamacpp.ResolveLlamaServerPath(rt)
-		inv := formatLlamaServerInvocation(bin, modelPath, llamacpp.ListenPort(), params)
+		bin := models.ResolveLlamaServerPath(rt)
+		inv := formatLlamaServerInvocation(bin, modelPath, models.ListenPort(), params)
 		go func() {
 			ch <- serverLogMsg{line: inv}
 			streamSplitServerCmd(cmd, ch)
@@ -318,16 +318,16 @@ func runLlamaServerSplitCmd(modelPath string, rt llamacpp.RuntimeInfo, params Mo
 }
 
 // runVLLMServerSplitCmd starts vllm serve in split-pane mode.
-func runVLLMServerSplitCmd(modelDir string, rt llamacpp.RuntimeInfo, params ModelParams) tea.Cmd {
+func runVLLMServerSplitCmd(modelDir string, rt models.RuntimeInfo, params ModelParams) tea.Cmd {
 	return func() tea.Msg {
 		cmd, err := newVLLMSplitCmd(modelDir, rt, params)
 		if err != nil {
 			return runServerErrMsg{err: err}
 		}
 		ch := make(chan tea.Msg, 64)
-		bin := llamacpp.ResolveVLLMPath(rt)
-		activate := llamacpp.ResolveVLLMActivateScript(bin)
-		inv := formatVLLMServerInvocation(bin, modelDir, llamacpp.VLLMPort(), activate, params)
+		bin := models.ResolveVLLMPath(rt)
+		activate := models.ResolveVLLMActivateScript(bin)
+		inv := formatVLLMServerInvocation(bin, modelDir, models.VLLMPort(), activate, params)
 		go func() {
 			ch <- serverLogMsg{line: inv}
 			streamSplitServerCmd(cmd, ch)
@@ -349,15 +349,15 @@ func readNextServerMsg(ch chan tea.Msg) tea.Cmd {
 
 // runVLLMServerCmd runs `vllm serve` for a Hugging Face-style model directory.
 // Port matches VLLM_SERVER_PORT / VLLMPort (default 8000).
-func runVLLMServerCmd(modelDir string, rt llamacpp.RuntimeInfo, params ModelParams) tea.Cmd {
-	bin := llamacpp.ResolveVLLMPath(rt)
+func runVLLMServerCmd(modelDir string, rt models.RuntimeInfo, params ModelParams) tea.Cmd {
+	bin := models.ResolveVLLMPath(rt)
 	if bin == "" {
 		return func() tea.Msg {
 			return runServerErrMsg{err: errVLLMNotFound()}
 		}
 	}
-	port := llamacpp.VLLMPort()
-	activate := llamacpp.ResolveVLLMActivateScript(bin)
+	port := models.VLLMPort()
+	activate := models.ResolveVLLMActivateScript(bin)
 	var c *exec.Cmd
 	if runtime.GOOS == "windows" {
 		if activate != "" {

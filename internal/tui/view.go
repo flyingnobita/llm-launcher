@@ -8,7 +8,7 @@ import (
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/flyingnobita/llml/internal/llamacpp"
+	"github.com/flyingnobita/llml/internal/models"
 )
 
 // serverLogPaneView renders the bordered server log viewport and, when vertical
@@ -128,7 +128,7 @@ func runtimePanelView(m Model, contentWidth int) string {
 	if !m.runtimeScanned && m.loading {
 		block = "Detecting runtimes…"
 	} else {
-		lines := llamacpp.RuntimePanelLines(contentWidth, m.runtime)
+		lines := models.RuntimePanelLines(contentWidth, m.runtime)
 		block = strings.Join(lines, "\n")
 		if !m.lastScan.IsZero() {
 			block += "\nLast model scan: " + m.lastScan.Local().Format(time.RFC3339)
@@ -466,19 +466,19 @@ func (m Model) runtimeConfigModalBlock() string {
 		runtimePanelView(m, cw),
 		m.styles.subtitle.Width(cw).Render(runtimeConfigModalSubtitle),
 		"",
-		label(m.runtimeFocus == runtimeFieldLlamaCppPath, llamacpp.EnvLlamaCppPath),
+		label(m.runtimeFocus == runtimeFieldLlamaCppPath, models.EnvLlamaCppPath),
 		m.runtimeInputs[runtimeFieldLlamaCppPath].View(),
 		"",
-		label(m.runtimeFocus == runtimeFieldVLLMPath, llamacpp.EnvVLLMPath),
+		label(m.runtimeFocus == runtimeFieldVLLMPath, models.EnvVLLMPath),
 		m.runtimeInputs[runtimeFieldVLLMPath].View(),
 		"",
 		label(m.runtimeFocus == runtimeFieldVLLMVenv, runtimeConfigLabelVLLMVenv),
 		m.runtimeInputs[runtimeFieldVLLMVenv].View(),
 		"",
-		label(m.runtimeFocus == runtimeFieldLlamaPort, llamacpp.EnvLlamaServerPort),
+		label(m.runtimeFocus == runtimeFieldLlamaPort, models.EnvLlamaServerPort),
 		m.runtimeInputs[runtimeFieldLlamaPort].View(),
 		"",
-		label(m.runtimeFocus == runtimeFieldVLLMPort, llamacpp.EnvVLLMServerPort),
+		label(m.runtimeFocus == runtimeFieldVLLMPort, models.EnvVLLMServerPort),
 		m.runtimeInputs[runtimeFieldVLLMPort].View(),
 		"",
 		m.styles.footer.Render(FooterRuntimeConfigHints),
@@ -488,13 +488,13 @@ func (m Model) runtimeConfigModalBlock() string {
 }
 
 // SelectedModel returns the filesystem path and backend for the highlighted row.
-func (m Model) SelectedModel() (path string, backend llamacpp.ModelBackend) {
+func (m Model) SelectedModel() (path string, backend models.ModelBackend) {
 	if len(m.tbl.Rows()) == 0 || m.tbl.Cursor() < 0 {
-		return "", llamacpp.BackendLlama
+		return "", models.BackendLlama
 	}
 	i := m.tbl.Cursor()
 	if i < 0 || i >= len(m.files) {
-		return "", llamacpp.BackendLlama
+		return "", models.BackendLlama
 	}
 	return m.files[i].Path, m.files[i].Backend
 }

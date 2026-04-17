@@ -13,7 +13,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/compat"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/flyingnobita/llml/internal/llamacpp"
+	"github.com/flyingnobita/llml/internal/models"
 )
 
 // Model is the root Bubble Tea model.
@@ -31,10 +31,10 @@ type Model struct {
 	keys               KeyMap
 	tbl                btable.Model
 	hscroll            viewport.Model
-	files              []llamacpp.ModelFile
-	sortCol            int  // [tableSortCol*]; default Path ascending matches [llamacpp.Discover] order
+	files              []models.ModelFile
+	sortCol            int  // [tableSortCol*]; default Path ascending matches [models.Discover] order
 	sortDesc           bool // false = ascending
-	runtime            llamacpp.RuntimeInfo
+	runtime            models.RuntimeInfo
 	runtimeScanned     bool
 	lastRunNote        string
 	lastRunNoteSuccess bool // true: lastRunNote is non-error feedback (e.g. copy confirmation)

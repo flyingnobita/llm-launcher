@@ -24,7 +24,7 @@ safetensors models on the local filesystem and launching `llama-server` or
 cmd/llml/            # Binary entrypoint (main.go)
 internal/
   config/            # TOML persistence ({UserConfigDir}/llml/config.toml): runtime, discovery cache, [[models]]
-  llamacpp/          # GGUF + safetensors discovery, metadata, runtime detection, formatting
+  models/            # GGUF + safetensors discovery, metadata, runtime detection, formatting; also vLLM and HF-hub support
   tui/               # Bubble Tea model, update, view, styles, keymaps
 scripts/             # gofmt-check.sh, precommit-docs-fix.sh
 ```
@@ -110,7 +110,7 @@ The pre-commit hook handles staged files automatically.
 
 - Unit tests for `internal/config` cover TOML round-trip, env precedence over
   TOML, cache validation, and stale path filtering.
-- Unit tests for `internal/llamacpp` cover discovery, formatting, paths, and
+- Unit tests for `internal/models` cover discovery, formatting, paths, and
   runtime detection.
 - Unit tests for `internal/tui` cover model initialization, parameter-profile
   persistence, server command construction, theme correctness (including

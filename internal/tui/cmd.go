@@ -7,14 +7,14 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/flyingnobita/llml/internal/config"
-	"github.com/flyingnobita/llml/internal/llamacpp"
+	"github.com/flyingnobita/llml/internal/models"
 )
 
 const themeToastVisibleDuration = 2 * time.Second
 
 func discoverRuntimeCmd() tea.Cmd {
 	return func() tea.Msg {
-		return runtimeReadyMsg{runtime: llamacpp.DiscoverRuntime()}
+		return runtimeReadyMsg{runtime: models.DiscoverRuntime()}
 	}
 }
 
@@ -22,15 +22,15 @@ func discoverRuntimeCmd() tea.Cmd {
 func applyAndFullScanCmd() tea.Cmd {
 	return func() tea.Msg {
 		cfg, err := config.ReadFile()
-		opts := llamacpp.Options{}
+		opts := models.Options{}
 		var fromFile []string
 		if err == nil {
 			config.ApplyRuntimeFromConfig(&cfg.Runtime)
 			fromFile = cfg.Discovery.ExtraModelPaths
 		}
 		opts.ExtraRoots = config.MergeExtraRoots(fromFile, config.ExtraModelPathsFromEnv())
-		rt := llamacpp.DiscoverRuntime()
-		files, derr := llamacpp.Discover(opts)
+		rt := models.DiscoverRuntime()
+		files, derr := models.Discover(opts)
 		if derr != nil {
 			return modelsErrMsg{err: derr}
 		}
@@ -49,13 +49,13 @@ func applyAndFullScanCmd() tea.Cmd {
 func rescanModelsCmd() tea.Cmd {
 	return func() tea.Msg {
 		cfg, err := config.ReadFile()
-		opts := llamacpp.Options{}
+		opts := models.Options{}
 		var fromFile []string
 		if err == nil {
 			fromFile = cfg.Discovery.ExtraModelPaths
 		}
 		opts.ExtraRoots = config.MergeExtraRoots(fromFile, config.ExtraModelPathsFromEnv())
-		files, derr := llamacpp.Discover(opts)
+		files, derr := models.Discover(opts)
 		if derr != nil {
 			return modelsErrMsg{err: derr}
 		}
@@ -81,7 +81,7 @@ func reloadRuntimeCmd() tea.Cmd {
 			return runtimeReloadErrMsg{err: err}
 		}
 		config.ApplyRuntimeFromConfig(&cfg.Runtime)
-		return runtimeReadyMsg{runtime: llamacpp.DiscoverRuntime()}
+		return runtimeReadyMsg{runtime: models.DiscoverRuntime()}
 	}
 }
 
@@ -93,7 +93,7 @@ func startupCmd() tea.Cmd {
 			return startupNeedFullScanMsg{}
 		}
 		config.ApplyRuntimeFromConfig(&cfg.Runtime)
-		rt := llamacpp.DiscoverRuntime()
+		rt := models.DiscoverRuntime()
 		files := config.FilterExistingPaths(config.ModelFilesFromEntries(cfg.Models))
 		if len(files) == 0 {
 			return startupNeedFullScanMsg{}

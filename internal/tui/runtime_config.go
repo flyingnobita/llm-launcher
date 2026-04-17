@@ -9,7 +9,7 @@ import (
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
-	"github.com/flyingnobita/llml/internal/llamacpp"
+	"github.com/flyingnobita/llml/internal/models"
 )
 
 const (
@@ -22,34 +22,34 @@ const (
 )
 
 // applyListenPortEnv sets LLAMA_SERVER_PORT from user input, or unsets it when empty
-// (default port 8080 via llamacpp.ListenPort). Input should be digits only or empty.
+// (default port 8080 via models.ListenPort). Input should be digits only or empty.
 func applyListenPortEnv(raw string) error {
 	v := strings.TrimSpace(raw)
 	if v == "" {
-		os.Unsetenv(llamacpp.EnvLlamaServerPort)
+		os.Unsetenv(models.EnvLlamaServerPort)
 		return nil
 	}
 	p, err := strconv.Atoi(v)
 	if err != nil || p < 1 || p > 65535 {
 		return fmt.Errorf("port must be 1-65535 or empty for default 8080")
 	}
-	os.Setenv(llamacpp.EnvLlamaServerPort, v)
+	os.Setenv(models.EnvLlamaServerPort, v)
 	return nil
 }
 
 // applyVLLMPortEnv sets VLLM_SERVER_PORT from user input, or unsets it when empty
-// (default port 8000 via llamacpp.VLLMPort).
+// (default port 8000 via models.VLLMPort).
 func applyVLLMPortEnv(raw string) error {
 	v := strings.TrimSpace(raw)
 	if v == "" {
-		os.Unsetenv(llamacpp.EnvVLLMServerPort)
+		os.Unsetenv(models.EnvVLLMServerPort)
 		return nil
 	}
 	p, err := strconv.Atoi(v)
 	if err != nil || p < 1 || p > 65535 {
 		return fmt.Errorf("port must be 1-65535 or empty for default 8000")
 	}
-	os.Setenv(llamacpp.EnvVLLMServerPort, v)
+	os.Setenv(models.EnvVLLMServerPort, v)
 	return nil
 }
 
@@ -62,14 +62,14 @@ func prefillPort(envKey string, effective int) string {
 }
 
 // applyPathEnv sets or unsets a path-style environment variable (trimmed; empty unsets).
-// A leading "~" or "~/" is expanded to the user's home directory ([llamacpp.ExpandTildePath]).
+// A leading "~" or "~/" is expanded to the user's home directory ([models.ExpandTildePath]).
 func applyPathEnv(key, raw string) {
 	v := strings.TrimSpace(raw)
 	if v == "" {
 		os.Unsetenv(key)
 		return
 	}
-	v = filepath.Clean(llamacpp.ExpandTildePath(v))
+	v = filepath.Clean(models.ExpandTildePath(v))
 	if v == "" || v == "." {
 		os.Unsetenv(key)
 		return
@@ -89,7 +89,7 @@ func validatePortInput(s string) error {
 	return nil
 }
 
-// validatePortCommit checks a port field before applying (empty = llamacpp default for that env).
+// validatePortCommit checks a port field before applying (empty = models default for that env).
 func validatePortCommit(raw string) error {
 	v := strings.TrimSpace(raw)
 	if v == "" {
@@ -132,29 +132,29 @@ func (m Model) openRuntimeConfigFocused(focus int) (Model, tea.Cmd) {
 	m.runtimeConfigOpen = true
 	m.launchPreviewFocused = false
 	m = m.withLastRunCleared()
-	m.runtimeInputs[runtimeFieldLlamaCppPath].SetValue(os.Getenv(llamacpp.EnvLlamaCppPath))
-	m.runtimeInputs[runtimeFieldVLLMPath].SetValue(os.Getenv(llamacpp.EnvVLLMPath))
-	m.runtimeInputs[runtimeFieldVLLMVenv].SetValue(os.Getenv(llamacpp.EnvVLLMVenv))
-	m.runtimeInputs[runtimeFieldLlamaPort].SetValue(prefillPort(llamacpp.EnvLlamaServerPort, llamacpp.ListenPort()))
-	m.runtimeInputs[runtimeFieldVLLMPort].SetValue(prefillPort(llamacpp.EnvVLLMServerPort, llamacpp.VLLMPort()))
+	m.runtimeInputs[runtimeFieldLlamaCppPath].SetValue(os.Getenv(models.EnvLlamaCppPath))
+	m.runtimeInputs[runtimeFieldVLLMPath].SetValue(os.Getenv(models.EnvVLLMPath))
+	m.runtimeInputs[runtimeFieldVLLMVenv].SetValue(os.Getenv(models.EnvVLLMVenv))
+	m.runtimeInputs[runtimeFieldLlamaPort].SetValue(prefillPort(models.EnvLlamaServerPort, models.ListenPort()))
+	m.runtimeInputs[runtimeFieldVLLMPort].SetValue(prefillPort(models.EnvVLLMServerPort, models.VLLMPort()))
 	return m.focusRuntimeField(focus)
 }
 
 // maybeSetMissingRuntimeFooterNote sets [Model.lastRunNote] when the scan found models that need a
-// backend binary, but [llamacpp.ResolveLlamaServerPath] or [llamacpp.ResolveVLLMPath] is empty.
+// backend binary, but [models.ResolveLlamaServerPath] or [models.ResolveVLLMPath] is empty.
 // GGUF rows require llama-server; vLLM rows require vllm. Clears the footer line when neither applies.
 func (m Model) maybeSetMissingRuntimeFooterNote() (Model, tea.Cmd) {
 	var wantLlama, wantVLLM bool
 	for _, f := range m.files {
 		switch f.Backend {
-		case llamacpp.BackendLlama:
+		case models.BackendLlama:
 			wantLlama = true
-		case llamacpp.BackendVLLM:
+		case models.BackendVLLM:
 			wantVLLM = true
 		}
 	}
-	haveLlama := llamacpp.ResolveLlamaServerPath(m.runtime) != ""
-	haveVLLM := llamacpp.ResolveVLLMPath(m.runtime) != ""
+	haveLlama := models.ResolveLlamaServerPath(m.runtime) != ""
+	haveVLLM := models.ResolveVLLMPath(m.runtime) != ""
 
 	var msgs []string
 	if wantLlama && !haveLlama {
@@ -198,16 +198,16 @@ func (m Model) focusRuntimeField(i int) (Model, tea.Cmd) {
 
 func (m Model) commitRuntimeConfig() (Model, tea.Cmd) {
 	if err := validatePortCommit(m.runtimeInputs[runtimeFieldLlamaPort].Value()); err != nil {
-		m = m.withLastRunError(fmt.Sprintf("%s: %v", llamacpp.EnvLlamaServerPort, err))
+		m = m.withLastRunError(fmt.Sprintf("%s: %v", models.EnvLlamaServerPort, err))
 		return m, nil
 	}
 	if err := validatePortCommit(m.runtimeInputs[runtimeFieldVLLMPort].Value()); err != nil {
-		m = m.withLastRunError(fmt.Sprintf("%s: %v", llamacpp.EnvVLLMServerPort, err))
+		m = m.withLastRunError(fmt.Sprintf("%s: %v", models.EnvVLLMServerPort, err))
 		return m, nil
 	}
-	applyPathEnv(llamacpp.EnvLlamaCppPath, m.runtimeInputs[runtimeFieldLlamaCppPath].Value())
-	applyPathEnv(llamacpp.EnvVLLMPath, m.runtimeInputs[runtimeFieldVLLMPath].Value())
-	applyPathEnv(llamacpp.EnvVLLMVenv, m.runtimeInputs[runtimeFieldVLLMVenv].Value())
+	applyPathEnv(models.EnvLlamaCppPath, m.runtimeInputs[runtimeFieldLlamaCppPath].Value())
+	applyPathEnv(models.EnvVLLMPath, m.runtimeInputs[runtimeFieldVLLMPath].Value())
+	applyPathEnv(models.EnvVLLMVenv, m.runtimeInputs[runtimeFieldVLLMVenv].Value())
 	if err := applyListenPortEnv(m.runtimeInputs[runtimeFieldLlamaPort].Value()); err != nil {
 		m = m.withLastRunError(err.Error())
 		return m, nil
@@ -216,7 +216,7 @@ func (m Model) commitRuntimeConfig() (Model, tea.Cmd) {
 		m = m.withLastRunError(err.Error())
 		return m, nil
 	}
-	m.runtime = llamacpp.DiscoverRuntime()
+	m.runtime = models.DiscoverRuntime()
 	if err := writeConfigFromModel(m); err != nil {
 		m = m.withLastRunError("Could not save config: " + err.Error())
 	} else {

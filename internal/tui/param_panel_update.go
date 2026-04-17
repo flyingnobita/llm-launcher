@@ -6,7 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/flyingnobita/llml/internal/llamacpp"
+	"github.com/flyingnobita/llml/internal/models"
 )
 
 func (m *Model) syncCurrentProfileOut() {
@@ -75,7 +75,7 @@ func (m Model) commitParamLineEdit() Model {
 		}
 	case paramEditArgLine:
 		if m.paramArgsCursor >= 0 && m.paramArgsCursor < m.paramArgsLen() {
-			m.paramArgs[m.paramArgsCursor] = llamacpp.ExpandTildePath(strings.TrimSpace(line))
+			m.paramArgs[m.paramArgsCursor] = models.ExpandTildePath(strings.TrimSpace(line))
 		}
 	}
 	m.paramEditInput.SetValue("")

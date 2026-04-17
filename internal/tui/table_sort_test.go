@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flyingnobita/llml/internal/llamacpp"
+	"github.com/flyingnobita/llml/internal/models"
 )
 
 func TestSortModelFiles_nameAscDesc(t *testing.T) {
-	files := []llamacpp.ModelFile{
+	files := []models.ModelFile{
 		{Name: "zebra", Path: "/z"},
 		{Name: "alpha", Path: "/a"},
 	}
@@ -26,7 +26,7 @@ func TestSortModelFiles_nameAscDesc(t *testing.T) {
 func TestSortModelFiles_idAsc(t *testing.T) {
 	p1 := filepath.Join("hub", "models--z--z-model", "snapshots", "x")
 	p2 := filepath.Join("hub", "models--a--b", "snapshots", "y")
-	files := []llamacpp.ModelFile{
+	files := []models.ModelFile{
 		{Path: p1, Name: "x"},
 		{Path: p2, Name: "y"},
 	}
@@ -37,7 +37,7 @@ func TestSortModelFiles_idAsc(t *testing.T) {
 }
 
 func TestSortModelFiles_pathAsc(t *testing.T) {
-	files := []llamacpp.ModelFile{
+	files := []models.ModelFile{
 		{Path: "/b", Name: "b"},
 		{Path: "/a", Name: "a"},
 	}
@@ -48,22 +48,22 @@ func TestSortModelFiles_pathAsc(t *testing.T) {
 }
 
 func TestSortModelFiles_runtime(t *testing.T) {
-	files := []llamacpp.ModelFile{
-		{Backend: llamacpp.BackendVLLM, Path: "/v"},
-		{Backend: llamacpp.BackendLlama, Path: "/l"},
+	files := []models.ModelFile{
+		{Backend: models.BackendVLLM, Path: "/v"},
+		{Backend: models.BackendLlama, Path: "/l"},
 	}
 	sortModelFiles(files, tableSortColRuntime, false)
-	if files[0].Backend != llamacpp.BackendLlama || files[1].Backend != llamacpp.BackendVLLM {
+	if files[0].Backend != models.BackendLlama || files[1].Backend != models.BackendVLLM {
 		t.Fatalf("runtime asc: got %#v", files)
 	}
 	sortModelFiles(files, tableSortColRuntime, true)
-	if files[0].Backend != llamacpp.BackendVLLM || files[1].Backend != llamacpp.BackendLlama {
+	if files[0].Backend != models.BackendVLLM || files[1].Backend != models.BackendLlama {
 		t.Fatalf("runtime desc: got %#v", files)
 	}
 }
 
 func TestSortModelFiles_size(t *testing.T) {
-	files := []llamacpp.ModelFile{
+	files := []models.ModelFile{
 		{Size: 200, Path: "/big"},
 		{Size: 10, Path: "/small"},
 	}
@@ -76,7 +76,7 @@ func TestSortModelFiles_size(t *testing.T) {
 func TestSortModelFiles_modTime(t *testing.T) {
 	tOld := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 	tNew := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
-	files := []llamacpp.ModelFile{
+	files := []models.ModelFile{
 		{ModTime: tNew, Path: "/n"},
 		{ModTime: tOld, Path: "/o"},
 	}
@@ -87,7 +87,7 @@ func TestSortModelFiles_modTime(t *testing.T) {
 }
 
 func TestSortModelFiles_stableEqualKeys(t *testing.T) {
-	files := []llamacpp.ModelFile{
+	files := []models.ModelFile{
 		{Name: "same", Path: "/first"},
 		{Name: "same", Path: "/second"},
 	}
@@ -98,12 +98,12 @@ func TestSortModelFiles_stableEqualKeys(t *testing.T) {
 }
 
 func TestSortModelFiles_emptyOrSingle(t *testing.T) {
-	var empty []llamacpp.ModelFile
+	var empty []models.ModelFile
 	sortModelFiles(empty, tableSortColFileName, false)
 	if len(empty) != 0 {
 		t.Fatal("empty slice mutated")
 	}
-	one := []llamacpp.ModelFile{{Name: "only", Path: "/o"}}
+	one := []models.ModelFile{{Name: "only", Path: "/o"}}
 	sortModelFiles(one, tableSortColFileName, true)
 	if len(one) != 1 || one[0].Path != "/o" {
 		t.Fatalf("single: got %#v", one)
@@ -111,8 +111,8 @@ func TestSortModelFiles_emptyOrSingle(t *testing.T) {
 }
 
 func TestCompareModelFilesCol_invalidColFallsBackToPath(t *testing.T) {
-	a := llamacpp.ModelFile{Path: "/a", Name: "x"}
-	b := llamacpp.ModelFile{Path: "/b", Name: "x"}
+	a := models.ModelFile{Path: "/a", Name: "x"}
+	b := models.ModelFile{Path: "/b", Name: "x"}
 	if compareModelFilesCol(a, b, 99) >= 0 {
 		t.Fatal("expected /a < /b for fallback path compare")
 	}

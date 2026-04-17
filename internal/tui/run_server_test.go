@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	btable "charm.land/bubbles/v2/table"
-	"github.com/flyingnobita/llml/internal/llamacpp"
+	"github.com/flyingnobita/llml/internal/models"
 )
 
 func TestShellSingleQuoted(t *testing.T) {
@@ -65,15 +65,15 @@ func TestFormatVLLMServerInvocation(t *testing.T) {
 func TestSplitServerInvocationEcho_matchesLlamaSplitLogLine(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
-	t.Setenv(llamacpp.EnvLlamaServerPort, "9090")
+	t.Setenv(models.EnvLlamaServerPort, "9090")
 	modelPath := filepath.Join(dir, "a.gguf")
 	m := New()
 	m.loading = false
 	m.loadErr = nil
-	m.files = []llamacpp.ModelFile{
-		{Backend: llamacpp.BackendLlama, Path: modelPath, Name: "a", Size: 1},
+	m.files = []models.ModelFile{
+		{Backend: models.BackendLlama, Path: modelPath, Name: "a", Size: 1},
 	}
-	m.runtime = llamacpp.RuntimeInfo{LlamaServerPath: "/bin/llama-server"}
+	m.runtime = models.RuntimeInfo{LlamaServerPath: "/bin/llama-server"}
 	m.tbl.SetRows([]btable.Row{{"a", "a", "llama.cpp", "1 B", "", modelPath}})
 	m.tbl.SetCursor(0)
 
@@ -106,15 +106,15 @@ func TestSplitServerInvocationEcho_matchesLlamaSplitLogLine(t *testing.T) {
 func TestLaunchPreviewCommandLine_vllmOmitsActivateWrapper(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
-	t.Setenv(llamacpp.EnvVLLMServerPort, "8000")
+	t.Setenv(models.EnvVLLMServerPort, "8000")
 	modelPath := filepath.Join(dir, "hf-model")
 	m := New()
 	m.loading = false
 	m.loadErr = nil
-	m.files = []llamacpp.ModelFile{
-		{Backend: llamacpp.BackendVLLM, Path: modelPath, Name: "m", Size: 1},
+	m.files = []models.ModelFile{
+		{Backend: models.BackendVLLM, Path: modelPath, Name: "m", Size: 1},
 	}
-	m.runtime = llamacpp.RuntimeInfo{VLLMPath: "/proj/.venv/bin/vllm"}
+	m.runtime = models.RuntimeInfo{VLLMPath: "/proj/.venv/bin/vllm"}
 	m.tbl.SetRows([]btable.Row{{"m", "hf-model", "vllm", "1 B", "", modelPath}})
 	m.tbl.SetCursor(0)
 
