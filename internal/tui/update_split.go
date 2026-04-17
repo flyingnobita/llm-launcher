@@ -31,30 +31,48 @@ func isEnterKey(msg tea.KeyPressMsg) bool {
 	return msg.Key().Code == tea.KeyEnter
 }
 
+// cycleSplitPaneFocus shifts focus between the table, launch preview (if visible), and the server log.
+func (m Model) cycleSplitPaneFocus() Model {
+	if !m.server.splitFocused && !m.preview.focused {
+		if launchPreviewVisible(m) {
+			m.preview.focused = true
+			m.table.tbl.Blur()
+		} else {
+			m.server.splitFocused = true
+			m.table.tbl.Blur()
+		}
+	} else if m.preview.focused {
+		m.preview.focused = false
+		m.server.splitFocused = true
+	} else {
+		m.server.splitFocused = false
+		m.table.tbl.Focus()
+	}
+	return m.applyMainPaneFocusStyles()
+}
+
 // updateServerSplitKeys handles input while a split-pane server is running.
-// Tab switches focus between the model table and the log viewport; see [Model.server.splitFocused].
+// Tab switches focus between the model table, launch preview, and the log viewport.
 func (m Model) updateServerSplitKeys(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	if m.server.exited {
 		switch {
 		case isTabKey(msg):
-			m.server.splitFocused = !m.server.splitFocused
-			if m.server.splitFocused {
-				m.table.tbl.Blur()
-			} else {
-				m.table.tbl.Focus()
-			}
-			m = m.applySplitPaneFocusStyles()
-			return m, nil
+			return m.cycleSplitPaneFocus(), nil
 		case isEnterKey(msg), key.Matches(msg, m.keys.Quit), isEscapeKey(msg), isCtrlC(msg):
 			m = m.dismissSplitServer()
 			return m, nil
 		}
-		if !m.server.splitFocused {
-			return m.updateServerSplitTableKeys(msg)
+		if m.preview.focused {
+			var cmd tea.Cmd
+			m.preview.viewport, cmd = m.preview.viewport.Update(msg)
+			return m, cmd
 		}
-		var cmd tea.Cmd
-		m.server.viewport, cmd = m.server.viewport.Update(msg)
-		return m, cmd
+		if m.server.splitFocused {
+			var cmd tea.Cmd
+			m.server.viewport, cmd = m.server.viewport.Update(msg)
+			return m, cmd
+		}
+		return m.updateServerSplitTableKeys(msg)
 	}
 	switch {
 	case key.Matches(msg, m.keys.Quit):
@@ -64,21 +82,19 @@ func (m Model) updateServerSplitKeys(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case isCtrlC(msg):
 		return m.stopSplitServer()
 	case isTabKey(msg):
-		m.server.splitFocused = !m.server.splitFocused
-		if m.server.splitFocused {
-			m.table.tbl.Blur()
-		} else {
-			m.table.tbl.Focus()
-		}
-		m = m.applySplitPaneFocusStyles()
-		return m, nil
+		return m.cycleSplitPaneFocus(), nil
 	}
-	if !m.server.splitFocused {
-		return m.updateServerSplitTableKeys(msg)
+	if m.preview.focused {
+		var cmd tea.Cmd
+		m.preview.viewport, cmd = m.preview.viewport.Update(msg)
+		return m, cmd
 	}
-	var cmd tea.Cmd
-	m.server.viewport, cmd = m.server.viewport.Update(msg)
-	return m, cmd
+	if m.server.splitFocused {
+		var cmd tea.Cmd
+		m.server.viewport, cmd = m.server.viewport.Update(msg)
+		return m, cmd
+	}
+	return m.updateServerSplitTableKeys(msg)
 }
 
 func isTabKey(msg tea.KeyPressMsg) bool {

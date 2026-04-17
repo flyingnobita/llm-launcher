@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 Format: `- MMM-DD, YYYY - HH:MM AM/PM TIMEZONE - [Concise summary]`
 
+- Apr-17, 2026 - 11:55 PM +08 - [TUI: split-pane tab navigation cycles through table, command preview, and server log]
+- Apr-17, 2026 - 11:55 PM +08 - [TUI: fix terminal rendering misalignment by stripping carriage returns from server logs]
 - Apr-17, 2026 - 10:16 PM +08 - [Runtime: allow LLAMA_CPP_PATH and VLLM_PATH to point directly to the executable file instead of just its parent directory]
 - Apr-17, 2026 - 10:09 PM +08 - [TUI: rearranged model table columns to Model ID, Runtime, Size, Path, File Name, Last Modified]
 - Apr-17, 2026 - 09:19 PM +08 - [TUI: launch preview fills on first load; Tab focuses command pane for llama.cpp and vLLM rows; missing-runtime run errors match startup footer copy]

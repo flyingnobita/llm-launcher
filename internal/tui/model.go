@@ -416,7 +416,11 @@ func (m Model) withLaunchPreviewSynced() Model {
 func (m Model) applyMainPaneFocusStyles() Model {
 	if m.server.running {
 		m = m.applySplitPaneFocusStyles()
-		m.preview.viewport.Style = m.ui.styles.launchPreviewViewport
+		if m.preview.focused {
+			m.preview.viewport.Style = m.ui.styles.splitPaneChromeFocused
+		} else {
+			m.preview.viewport.Style = m.ui.styles.launchPreviewViewport
+		}
 		return m
 	}
 	if m.preview.focused {
@@ -443,6 +447,9 @@ func (m Model) applySplitPaneFocusStyles() Model {
 	if m.server.splitFocused {
 		m.table.hscroll.Style = m.ui.styles.splitPaneChromeDim
 		m.server.viewport.Style = m.ui.styles.splitPaneChromeFocused
+	} else if m.preview.focused {
+		m.table.hscroll.Style = m.ui.styles.splitPaneChromeDim
+		m.server.viewport.Style = m.ui.styles.splitPaneChromeDim
 	} else {
 		m.table.hscroll.Style = m.ui.styles.splitPaneChromeFocused
 		m.server.viewport.Style = m.ui.styles.splitPaneChromeDim

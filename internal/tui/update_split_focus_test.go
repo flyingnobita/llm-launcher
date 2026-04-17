@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/flyingnobita/llml/internal/models"
 )
 
 // tabMsg returns a synthetic Tab key press message for testing.
@@ -11,7 +12,7 @@ func tabMsg() tea.KeyPressMsg {
 	return tea.KeyPressMsg{Code: tea.KeyTab}
 }
 
-func TestUpdateServerSplitKeys_TabTogglesFocus(t *testing.T) {
+func TestUpdateServerSplitKeys_TabTogglesFocusNoPreview(t *testing.T) {
 	m := newTestModel()
 	m.server.running = true
 	m.server.exited = false
@@ -27,6 +28,39 @@ func TestUpdateServerSplitKeys_TabTogglesFocus(t *testing.T) {
 	got2, _ := got.updateServerSplitKeys(tabMsg())
 	if got2.server.splitFocused {
 		t.Fatalf("expected splitLogFocused=false after second Tab, got true")
+	}
+}
+
+func TestUpdateServerSplitKeys_TabCyclesThreeWay(t *testing.T) {
+	m := newTestModel()
+	m.table.files = []models.ModelFile{{Path: "/tmp/foo.gguf", Backend: models.BackendLlama}}
+	m.server.running = true
+	m.server.exited = false
+	m.server.splitFocused = false
+	m.preview.focused = false
+
+	// Tab 1: Table -> Preview
+	got, _ := m.updateServerSplitKeys(tabMsg())
+	if !got.preview.focused {
+		t.Fatalf("expected preview.focused=true, got false")
+	}
+	if got.server.splitFocused {
+		t.Fatalf("expected server.splitFocused=false, got true")
+	}
+
+	// Tab 2: Preview -> Server Log
+	got2, _ := got.updateServerSplitKeys(tabMsg())
+	if got2.preview.focused {
+		t.Fatalf("expected preview.focused=false, got true")
+	}
+	if !got2.server.splitFocused {
+		t.Fatalf("expected server.splitFocused=true, got false")
+	}
+
+	// Tab 3: Server Log -> Table
+	got3, _ := got2.updateServerSplitKeys(tabMsg())
+	if got3.preview.focused || got3.server.splitFocused {
+		t.Fatalf("expected both false, back to table")
 	}
 }
 
