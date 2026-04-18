@@ -34,6 +34,7 @@ Queued after “Now,” or medium priority.
 - [ ] (CLI) Add CLI to run servers with parameter profiles
 - [ ] (Platform) macOS support
 - [ ] (Platform) Windows WSL support
+- [ ] (TUI) refactor hint bar across windows
 
 ## Later
 
