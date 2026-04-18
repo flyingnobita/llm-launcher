@@ -175,13 +175,7 @@ const (
 	FooterParamHintNew       = "n: new"
 	FooterParamHintRename    = "r: rename"
 
-	FooterParamFooterProfiles = FooterHintTabSections + FooterHintSep + FooterNavHint + FooterHintSep +
-		FooterHintToggleTheme + FooterHintSep +
-		FooterParamHintNew + FooterHintSep + FooterParamHintDelete + FooterHintSep + FooterParamHintRename + FooterHintSep + FooterParamHintBack
-	FooterParamFooterDetailEmpty = FooterHintTabSections + FooterHintSep + FooterNavHint + FooterHintSep +
-		FooterHintToggleTheme + FooterHintSep +
-		FooterParamHintAddRow + FooterHintSep + FooterParamHintDelete + FooterHintSep + FooterParamHintBack
-	FooterParamFooterDetailRows = FooterHintTabSections + FooterHintSep + FooterNavHint + FooterHintSep +
-		FooterHintToggleTheme + FooterHintSep +
-		FooterParamHintAddRow + FooterHintSep + FooterParamHintDelete + FooterHintSep + FooterParamHintEnterEdit + FooterHintSep + FooterParamHintBack
+	FooterParamFooterProfiles    = FooterHintTabSections + FooterHintSep + FooterNavHint + FooterHintSep + FooterHintToggleTheme + FooterHintSep + FooterParamHintNew + FooterHintSep + FooterParamHintDelete + FooterHintSep + FooterParamHintRename + FooterHintSep + FooterParamHintBack
+	FooterParamFooterDetailEmpty = FooterHintTabSections + FooterHintSep + FooterNavHint + FooterHintSep + FooterHintToggleTheme + FooterHintSep + FooterParamHintAddRow + FooterHintSep + FooterParamHintDelete + FooterHintSep + FooterParamHintBack
+	FooterParamFooterDetailRows  = FooterHintTabSections + FooterHintSep + FooterNavHint + FooterHintSep + FooterHintToggleTheme + FooterHintSep + FooterParamHintAddRow + FooterHintSep + FooterParamHintDelete + FooterHintSep + FooterParamHintEnterEdit + FooterHintSep + FooterParamHintBack
 )
