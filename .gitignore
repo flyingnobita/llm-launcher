@@ -82,7 +82,8 @@ logs/*
 *.log
 
 # Development docs
-dev-docs/
+dev-docs/*
+!dev-docs/BACKLOG.md
 
 # Agents
 .agents/
