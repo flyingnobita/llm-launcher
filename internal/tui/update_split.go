@@ -63,6 +63,9 @@ func (m Model) updateServerSplitKeys(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			return m, nil
 		}
 		if m.preview.focused {
+			if m2, cmd, handled := m.tableNavKeys(msg); handled {
+				return m2, cmd
+			}
 			var cmd tea.Cmd
 			m.preview.viewport, cmd = m.preview.viewport.Update(msg)
 			return m, cmd
@@ -85,6 +88,9 @@ func (m Model) updateServerSplitKeys(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.cycleSplitPaneFocus(), nil
 	}
 	if m.preview.focused {
+		if m2, cmd, handled := m.tableNavKeys(msg); handled {
+			return m2, cmd
+		}
 		var cmd tea.Cmd
 		m.preview.viewport, cmd = m.preview.viewport.Update(msg)
 		return m, cmd

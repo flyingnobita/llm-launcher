@@ -173,6 +173,12 @@ func (m Model) maybeSetMissingRuntimeFooterNote() (Model, tea.Cmd) {
 	return m, nil
 }
 
+// maybeSetMissingRuntimeFooterNoteBatch is like maybeSetMissingRuntimeFooterNote but batches with another command.
+func (m Model) maybeSetMissingRuntimeFooterNoteBatch(cmd tea.Cmd) (Model, tea.Cmd) {
+	m2, cmd2 := m.maybeSetMissingRuntimeFooterNote()
+	return m2, tea.Batch(cmd, cmd2)
+}
+
 func (m Model) closeRuntimeConfig() Model {
 	m.rc.open = false
 	for i := range m.rc.inputs {
@@ -201,31 +207,33 @@ func (m Model) focusRuntimeField(i runtimeField) (Model, tea.Cmd) {
 func (m Model) commitRuntimeConfig() (Model, tea.Cmd) {
 	if err := validatePortCommit(m.rc.inputs[runtimeFieldLlamaPort].Value()); err != nil {
 		m = m.withLastRunError(fmt.Sprintf("%s: %v", models.EnvLlamaServerPort, err))
-		return m, nil
+		return m, clearLastRunNoteAfterCmd()
 	}
 	if err := validatePortCommit(m.rc.inputs[runtimeFieldVLLMPort].Value()); err != nil {
 		m = m.withLastRunError(fmt.Sprintf("%s: %v", models.EnvVLLMServerPort, err))
-		return m, nil
+		return m, clearLastRunNoteAfterCmd()
 	}
 	applyPathEnv(models.EnvLlamaCppPath, m.rc.inputs[runtimeFieldLlamaCppPath].Value())
 	applyPathEnv(models.EnvVLLMPath, m.rc.inputs[runtimeFieldVLLMPath].Value())
 	applyPathEnv(models.EnvVLLMVenv, m.rc.inputs[runtimeFieldVLLMVenv].Value())
 	if err := applyListenPortEnv(m.rc.inputs[runtimeFieldLlamaPort].Value()); err != nil {
 		m = m.withLastRunError(err.Error())
-		return m, nil
+		return m, clearLastRunNoteAfterCmd()
 	}
 	if err := applyVLLMPortEnv(m.rc.inputs[runtimeFieldVLLMPort].Value()); err != nil {
 		m = m.withLastRunError(err.Error())
-		return m, nil
+		return m, clearLastRunNoteAfterCmd()
 	}
 	m.runtime = models.DiscoverRuntime()
+	var cmd tea.Cmd
 	if err := writeConfigFromModel(m); err != nil {
 		m = m.withLastRunError("Could not save config: " + err.Error())
+		cmd = clearLastRunNoteAfterCmd()
 	} else {
 		m = m.withLastRunCleared()
 	}
 	m = m.closeRuntimeConfig()
-	return m, nil
+	return m, cmd
 }
 
 // updateRuntimeConfigKey handles keys while the runtime env editor is open.

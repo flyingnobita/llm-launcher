@@ -112,14 +112,14 @@ func (m Model) saveDiscoveryPaths() (Model, tea.Cmd) {
 	if reflect.DeepEqual(oldNorm, newNorm) {
 		m = m.closeDiscoveryPathsModal()
 		m = m.withLastRunSuccess("Model paths unchanged.")
-		return m, nil
+		return m, clearLastRunNoteAfterCmd()
 	}
 
 	m = m.closeDiscoveryPathsModal()
 	m = m.withLastRunSuccess("Model paths saved. Rescanning models...")
 	m.loading = true
 	m.loadErr = nil
-	return m, rescanModelsCmd(m.discovery.paths...)
+	return m, tea.Batch(rescanModelsCmd(m.discovery.paths...), clearLastRunNoteAfterCmd())
 }
 
 // updateDiscoveryPathsKey handles keys while the discovery paths modal is open.

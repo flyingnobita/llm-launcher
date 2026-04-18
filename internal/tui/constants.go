@@ -1,5 +1,7 @@
 package tui
 
+import "time"
+
 // Layout constants used across model, view, and table_layout.
 const (
 	// minTerminalWidth is the minimum terminal width we attempt to render into.
@@ -47,6 +49,10 @@ const (
 	// shellDisplayArgIndent is the leading spaces for multiline shell display lines after
 	// the first argv line (launch preview and clipboard; split-pane log uses "+ " instead).
 	shellDisplayArgIndent = "  "
+
+	// lastRunNoteVisibleDuration is how long the status line below the footer
+	// stays visible before clearing (e.g. copy feedback, scan results).
+	lastRunNoteVisibleDuration = 5 * time.Second
 )
 
 // Column-width defaults for the model table.
@@ -109,12 +115,6 @@ const (
 	FooterKeyCopyPath  = "enter"
 	FooterDescCopyPath = "copy cmd"
 	FooterHintCopyPath = FooterKeyCopyPath + ": " + FooterDescCopyPath
-
-	// Launch preview scroll (when the command exceeds the preview height).
-	FooterKeyLaunchPreviewScrollUp   = "["
-	FooterKeyLaunchPreviewScrollDown = "]"
-	FooterDescLaunchPreviewScroll    = "scroll cmd"
-	FooterHintLaunchPreviewScroll    = FooterKeyLaunchPreviewScrollUp + "/" + FooterKeyLaunchPreviewScrollDown + ": " + FooterDescLaunchPreviewScroll
 
 	// CopyCommandFeedback* are shown below the footer after Enter copies the launch command.
 	CopyCommandFeedbackSuccess = "Command copied to clipboard"

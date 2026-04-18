@@ -78,3 +78,6 @@ type splitInterruptMsg struct{}
 
 // themeToastClearMsg clears the transient theme toast (after tea.Tick).
 type themeToastClearMsg struct{}
+
+// lastRunNoteClearMsg clears the status line below the footer.
+type lastRunNoteClearMsg struct{}

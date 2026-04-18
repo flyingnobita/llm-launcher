@@ -106,3 +106,10 @@ func clearThemeToastAfterCmd() tea.Cmd {
 		return themeToastClearMsg{}
 	})
 }
+
+// clearLastRunNoteAfterCmd schedules removal of the footer status line (lastRunNote).
+func clearLastRunNoteAfterCmd() tea.Cmd {
+	return tea.Tick(lastRunNoteVisibleDuration, func(time.Time) tea.Msg {
+		return lastRunNoteClearMsg{}
+	})
+}

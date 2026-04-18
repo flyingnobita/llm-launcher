@@ -22,9 +22,6 @@ type KeyMap struct {
 	SortReverse  key.Binding
 	RescanModels key.Binding
 	Help         key.Binding
-	// LaunchPreviewScroll scroll the fixed-height launch command preview (idle main view).
-	LaunchPreviewScrollUp   key.Binding
-	LaunchPreviewScrollDown key.Binding
 }
 
 type runServerMode int
@@ -118,14 +115,6 @@ func DefaultKeyMap() KeyMap {
 		SortReverse: key.NewBinding(
 			key.WithKeys(FooterKeySortReverse),
 			key.WithHelp(FooterKeySortReverse, FooterDescSortReverse),
-		),
-		LaunchPreviewScrollUp: key.NewBinding(
-			key.WithKeys(FooterKeyLaunchPreviewScrollUp),
-			key.WithHelp(FooterKeyLaunchPreviewScrollUp, FooterDescLaunchPreviewScroll),
-		),
-		LaunchPreviewScrollDown: key.NewBinding(
-			key.WithKeys(FooterKeyLaunchPreviewScrollDown),
-			key.WithHelp(FooterKeyLaunchPreviewScrollDown, FooterDescLaunchPreviewScroll),
 		),
 	}
 }

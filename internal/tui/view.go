@@ -176,28 +176,30 @@ func footerHelpLine(m Model) string {
 		}
 		if m.server.splitFocused {
 			return fmt.Sprintf(
-				"%s · %s · %s · %d×%d",
-				FooterHintTabSections, stopOrDismiss, FooterNavHint, m.layout.width, m.layout.height,
+				"%s · %s · %s · %s",
+				FooterHintTabSections, stopOrDismiss, FooterNavHint, FooterHintHelp,
+			)
+		}
+		if m.preview.focused {
+			return fmt.Sprintf(
+				"%s · %s · %s · %s · %s",
+				FooterHintTabSections, stopOrDismiss, FooterHintCopyPath, FooterNavHint, FooterHintHelp,
 			)
 		}
 		// Table focused: same global shortcuts as the idle view except run (R / ctrl+R) while a server is up.
 		parts := []string{
-			FooterHintRefresh,
-			FooterHintRescan,
-			FooterNavHint,
-			FooterHintConfigPort,
-			FooterHintParameters,
-			FooterHintSort,
-			FooterHintToggleTheme,
-			FooterHintCopyPath,
 			FooterHintTabSections,
+			FooterNavHint,
 			stopOrDismiss,
+			FooterHintHelp,
 		}
-		if launchPreviewScrollable(m) {
-			parts = append(parts, FooterHintLaunchPreviewScroll)
-		}
-		parts = append(parts, fmt.Sprintf("%d×%d", m.layout.width, m.layout.height))
 		return strings.Join(parts, FooterHintSep)
+	}
+	if m.preview.focused {
+		return fmt.Sprintf(
+			"%s · %s · %s · %s · %s · %s",
+			FooterHintTabSections, FooterHintCopyPath, FooterNavHint, FooterHintRunSplit, FooterHintParameters, FooterHintHelp,
+		)
 	}
 	parts := []string{
 		FooterHintTabSections,

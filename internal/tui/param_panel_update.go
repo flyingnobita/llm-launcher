@@ -220,7 +220,7 @@ func (m Model) persistParamPanel() (Model, tea.Cmd) {
 	}
 	if err := saveModelEntry(m.params.modelPath, ent); err != nil {
 		m = m.withLastRunError(err.Error())
-		return m, nil
+		return m, clearLastRunNoteAfterCmd()
 	}
 	m = m.withLastRunCleared()
 	return m, nil

@@ -109,7 +109,7 @@ func (m Model) openParamPanel() (Model, tea.Cmd) {
 	p := m.SelectedPath()
 	if p == "" {
 		m = m.withLastRunError("Select a model row first.")
-		return m, nil
+		return m, clearLastRunNoteAfterCmd()
 	}
 	m.params.open = true
 	m.preview.focused = false
@@ -122,8 +122,10 @@ func (m Model) openParamPanel() (Model, tea.Cmd) {
 	m.params.editInput.SetValue("")
 
 	ent, err := loadModelEntry(m.params.modelPath)
+	var cmd tea.Cmd
 	if err != nil {
 		m = m.withLastRunError(err.Error())
+		cmd = clearLastRunNoteAfterCmd()
 		ent = modelEntry{
 			Profiles:    []ParameterProfile{{Name: "default", Env: nil, Args: nil}},
 			ActiveIndex: 0,
@@ -134,7 +136,7 @@ func (m Model) openParamPanel() (Model, tea.Cmd) {
 	m.params.focus = paramFocusProfiles
 	m.params.loadCurrentProfileIn()
 	m.params.editInput.SetWidth(m.paramEditInnerWidth())
-	return m, nil
+	return m, cmd
 }
 
 // paramEditInnerWidth is the textinput width for profile/env/argv line edits in the params modal.
