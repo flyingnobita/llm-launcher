@@ -12,6 +12,21 @@ func tabMsg() tea.KeyPressMsg {
 	return tea.KeyPressMsg{Code: tea.KeyTab}
 }
 
+func TestHelpOpensDuringSplitServer(t *testing.T) {
+	m := newTestModel()
+	m.server.running = true
+	m.server.exited = false
+
+	next, cmd := m.Update(tea.KeyPressMsg(tea.Key{Text: "?"}))
+	if cmd != nil {
+		t.Fatalf("unexpected cmd: %v", cmd)
+	}
+	m2 := next.(Model)
+	if !m2.helpOpen {
+		t.Fatal("expected helpOpen=true when pressing ? during split server")
+	}
+}
+
 func TestUpdateServerSplitKeys_TabTogglesFocusNoPreview(t *testing.T) {
 	m := newTestModel()
 	m.server.running = true

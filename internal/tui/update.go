@@ -227,6 +227,10 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.updateDiscoveryPathsKey(msg)
 	}
 	if m.server.running {
+		if key.Matches(msg, m.keys.Help) {
+			m.helpOpen = true
+			return m, nil
+		}
 		return m.updateServerSplitKeys(msg)
 	}
 	if key.Matches(msg, m.keys.Quit) {
