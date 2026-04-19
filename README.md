@@ -52,14 +52,16 @@ go install github.com/flyingnobita/llml/cmd/llml@latest
 
 #### Homebrew (cask in this repository)
 
-macOS or Linux with [Homebrew](https://brew.sh/). The tap is this GitHub repo; the artifact is a **cask** at [`Casks/llml.rb`](Casks/llml.rb). GoReleaser’s `homebrew_casks` block updates that file on each `v*` tag using the release workflow’s `GITHUB_TOKEN` (see [Releases and packaging](#releases-and-packaging)).
+macOS or Linux with [Homebrew](https://brew.sh/). The cask file lives in **this** repo ([`Casks/llml.rb`](Casks/llml.rb)); GoReleaser’s `homebrew_casks` block updates it on each `v*` tag using the release workflow’s `GITHUB_TOKEN` (see [Releases and packaging](#releases-and-packaging)).
+
+Homebrew’s default tap URL for `user/repo` is `https://github.com/user/homebrew-repo`, so `flyingnobita/llml` would look for [`homebrew-llml`](https://github.com/flyingnobita/homebrew-llml), which does not exist. Point the tap at this repository explicitly:
 
 ```bash
-brew tap flyingnobita/llml
+brew tap flyingnobita/llml https://github.com/flyingnobita/llml.git
 brew install --cask llml
 ```
 
-One-liner:
+After that tap exists locally, you can reinstall with:
 
 ```bash
 brew install --cask flyingnobita/llml/llml
@@ -131,7 +133,7 @@ Tags matching `v*` trigger [.github/workflows/release.yml](.github/workflows/rel
 
 **Homebrew (cask, not a core formula):**
 
-- GoReleaser publishes via **`homebrew_casks`** in [`.goreleaser.yaml`](.goreleaser.yaml), committing [`Casks/llml.rb`](Casks/llml.rb) into **this** repo using the workflow’s **`GITHUB_TOKEN`** (`contents: write` is already set on the job). No separate tap repository and no `HOMEBREW_GITHUB_API_TOKEN`.
+- GoReleaser publishes via **`homebrew_casks`** in [`.goreleaser.yaml`](.goreleaser.yaml), committing [`Casks/llml.rb`](Casks/llml.rb) into **this** repo using the workflow’s **`GITHUB_TOKEN`** (`contents: write` is already set on the job). No separate tap repository and no `HOMEBREW_GITHUB_API_TOKEN`. Users must **`brew tap flyingnobita/llml https://github.com/flyingnobita/llml.git`** once (see [Homebrew](#homebrew-cask-in-this-repository)); a bare `brew tap flyingnobita/llml` clones the wrong GitHub repo by convention.
 - If **branch protection** blocks the Actions bot from pushing to `main`, relax rules for `Casks/**` or use a PAT with write access (only if you adopt overriding `GITHUB_TOKEN` in the workflow).
 - **Upgrading from the old formula:** run `brew uninstall llml` once, then `brew install --cask llml` as above.
 - **After the first cask release:** remove any leftover **`Formula/llml.rb`** on `main` so the tap only ships the cask (avoids duplicate/conflicting definitions).

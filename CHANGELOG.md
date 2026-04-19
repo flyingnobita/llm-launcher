@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 Format: `- MMM-DD, YYYY - HH:MM AM/PM TIMEZONE - [Concise summary]`
 
+- Apr-19, 2026 - [Docs: Homebrew tap must use explicit `https://github.com/flyingnobita/llml.git` URL; default `flyingnobita/llml` resolves to non-existent `homebrew-llml` repo]
 - Apr-19, 2026 - [Chore: restore tracked tree to commit f878385 (Homebrew cask docs baseline); main is protected so history was not rewritten]
 - Apr-19, 2026 - [Docs: Homebrew cask maintainer steps, `binary`→`binaries` GoReleaser note, mise.toml comment]
 - Apr-19, 2026 - [GoReleaser: migrate deprecated `brews` to `homebrew_casks` (Casks/llml.rb); README and AGENTS install paths use `brew install --cask`]
