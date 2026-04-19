@@ -173,6 +173,27 @@ func (m Model) addProfile() Model {
 	return m
 }
 
+func (m Model) duplicateProfile() Model {
+	m.params.syncCurrentProfileOut()
+	if m.params.profileIndex < 0 || m.params.profileIndex >= len(m.params.profiles) {
+		return m
+	}
+	p := m.params.profiles[m.params.profileIndex]
+	nm := cloneProfileName(p.Name, m.params.profiles)
+	clone := ParameterProfile{
+		Name: nm,
+		Env:  append([]EnvVar(nil), p.Env...),
+		Args: append([]string(nil), p.Args...),
+	}
+	i := m.params.profileIndex
+	m.params.profiles = append(m.params.profiles[:i+1], append([]ParameterProfile{clone}, m.params.profiles[i+1:]...)...)
+	m.params.profileIndex = i + 1
+	m.params.loadCurrentProfileIn()
+	m.params.envCursor = 0
+	m.params.argsCursor = 0
+	return m
+}
+
 func (m Model) deleteProfile() Model {
 	if len(m.params.profiles) <= 1 {
 		return m
@@ -328,6 +349,12 @@ func (m Model) updateParamPanelKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case "n":
 		if m.params.focus == paramFocusProfiles {
 			m = m.addProfile()
+			return m.persistParamPanel()
+		}
+		return m, nil
+	case "c":
+		if m.params.focus == paramFocusProfiles {
+			m = m.duplicateProfile()
 			return m.persistParamPanel()
 		}
 		return m, nil

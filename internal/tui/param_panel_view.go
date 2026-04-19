@@ -1,8 +1,22 @@
 package tui
 
 import (
+	"strings"
+
 	"charm.land/lipgloss/v2"
 )
+
+// activeProfileLabelForView returns the display name of the profile used for R and copy-cmd.
+func (m Model) activeProfileLabelForView() string {
+	if m.params.profileIndex < 0 || m.params.profileIndex >= len(m.params.profiles) {
+		return "(unnamed)"
+	}
+	n := strings.TrimSpace(m.params.profiles[m.params.profileIndex].Name)
+	if n == "" {
+		return "(unnamed)"
+	}
+	return n
+}
 
 // renderEditableListItems renders the rows for one editable param section (env vars or extra args).
 // It uses "› " prefix for the focused row, shows the inline edit input when that row is being edited,
@@ -99,6 +113,8 @@ func (m Model) paramPanelModalBlock() string {
 	}
 
 	rows = append(rows, m.ui.styles.body.Render("  Profiles"))
+	activeSummary := "Active for R / copy cmd: " + m.activeProfileLabelForView()
+	rows = append(rows, m.ui.styles.bodyDim.Render("  "+truncateParamLine(activeSummary, max(8, maxLine-2))))
 	rows = append(rows, "")
 	for i := range m.params.profiles {
 		name := m.params.profiles[i].Name
@@ -132,6 +148,11 @@ func (m Model) paramPanelModalBlock() string {
 
 	rows = append(rows, "")
 	var detailRows []string
+	if m.params.focus == paramFocusEnv || m.params.focus == paramFocusArgs {
+		activeCtx := "Active profile: " + m.activeProfileLabelForView()
+		detailRows = append(detailRows, m.ui.styles.bodyDim.Render("  "+truncateParamLine(activeCtx, maxSec)))
+		detailRows = append(detailRows, "")
+	}
 	const sectionHeadingIndent = "  "
 	envHeading := "Environment Variables (e.g. PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True)"
 	detailRows = append(detailRows, lipgloss.JoinHorizontal(lipgloss.Top,

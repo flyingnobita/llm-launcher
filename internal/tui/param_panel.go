@@ -95,6 +95,25 @@ func nextProfileName(profiles []ParameterProfile) string {
 	return "Parameter profile"
 }
 
+// cloneProfileName picks a unique profile name derived from base (e.g. "foo copy", "foo copy 2").
+func cloneProfileName(base string, profiles []ParameterProfile) string {
+	b := strings.TrimSpace(base)
+	if b == "" {
+		return nextProfileName(profiles)
+	}
+	cand := b + " copy"
+	if !profileNameTaken(profiles, cand, -1) {
+		return cand
+	}
+	for n := 2; n < 1000; n++ {
+		cand = fmt.Sprintf("%s copy %d", b, n)
+		if !profileNameTaken(profiles, cand, -1) {
+			return cand
+		}
+	}
+	return nextProfileName(profiles)
+}
+
 func copyProfiles(in []ParameterProfile) []ParameterProfile {
 	out := make([]ParameterProfile, len(in))
 	for i := range in {

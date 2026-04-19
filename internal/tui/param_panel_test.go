@@ -20,6 +20,52 @@ func TestParseEnvLine_expandTilde(t *testing.T) {
 	}
 }
 
+func TestCloneProfileName(t *testing.T) {
+	profiles := []ParameterProfile{{Name: "cuda"}, {Name: "cuda copy"}}
+	if got := cloneProfileName("cuda", profiles); got != "cuda copy 2" {
+		t.Fatalf("cloneProfileName = %q", got)
+	}
+	if got := cloneProfileName("", []ParameterProfile{{Name: "x"}}); got == "" {
+		t.Fatal("empty base should fall back to nextProfileName")
+	}
+}
+
+func TestParamPanelCloneProfile(t *testing.T) {
+	m := New()
+	m.params.open = true
+	m.params.focus = paramFocusProfiles
+	m.params.profiles = []ParameterProfile{
+		{Name: "cuda", Env: []EnvVar{{Key: "FOO", Value: "bar"}}, Args: []string{"--x"}},
+		{Name: "cpu"},
+	}
+	m.params.profileIndex = 0
+	m.params.loadCurrentProfileIn()
+
+	m, _ = m.updateParamPanelKey(tea.KeyPressMsg{Code: 'c', Text: "c"})
+	if len(m.params.profiles) != 3 {
+		t.Fatalf("want 3 profiles, got %d", len(m.params.profiles))
+	}
+	if m.params.profileIndex != 1 {
+		t.Fatalf("want cursor on new clone at index 1, got %d", m.params.profileIndex)
+	}
+	clone := m.params.profiles[1]
+	if clone.Name != "cuda copy" {
+		t.Fatalf("clone name = %q", clone.Name)
+	}
+	if len(clone.Env) != 1 || clone.Env[0].Key != "FOO" || clone.Env[0].Value != "bar" {
+		t.Fatalf("clone env: %+v", clone.Env)
+	}
+	if len(clone.Args) != 1 || clone.Args[0] != "--x" {
+		t.Fatalf("clone args: %+v", clone.Args)
+	}
+	if m.params.profiles[0].Name != "cuda" {
+		t.Fatal("original profile name changed")
+	}
+	if len(m.params.profiles[0].Env) != 1 {
+		t.Fatal("original profile env should still be one row (synced from editor state)")
+	}
+}
+
 func TestParamPanelDeleteConfirm(t *testing.T) {
 	m := New()
 	m.layout.width = 80
@@ -163,6 +209,9 @@ func TestParamPanelViewIncludesMainAppBackdrop(t *testing.T) {
 	}
 	if !strings.Contains(content, "Parameters") {
 		t.Fatal("expected parameters modal in view")
+	}
+	if !strings.Contains(content, "Active for R / copy cmd:") {
+		t.Fatal("expected active profile summary in parameters modal")
 	}
 	// Subtitle line remains visible outside the modal on a tall layout.
 	if !strings.Contains(content, "filesystem scan") {
