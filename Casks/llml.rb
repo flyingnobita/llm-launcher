@@ -32,8 +32,6 @@ cask "llml" do
   desc "Terminal UI to discover local models and launch llama-server or vLLM"
   homepage "https://github.com/flyingnobita/llml"
 
-  license "MIT"
-
   livecheck do
     skip "Version is updated by GoReleaser on each release."
   end
