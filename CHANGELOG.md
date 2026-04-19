@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 Format: `- MMM-DD, YYYY - HH:MM AM/PM TIMEZONE - [Concise summary]`
 
+- Apr-19, 2026 - [v0.3.0 release: packaging-only bump; triggers GoReleaser winget PR to microsoft/winget-pkgs]
 - Apr-19, 2026 - [Docs: Homebrew cask maintainer steps, `binary`→`binaries` GoReleaser note, mise.toml comment]
 - Apr-19, 2026 - [GoReleaser: migrate deprecated `brews` to `homebrew_casks` (Casks/llml.rb); README and AGENTS install paths use `brew install --cask`]
 - Apr-19, 2026 - [CI: `goreleaser check` via mise; winget fork sync workflow + `scripts/setup-winget-fork.sh`; README maintainer automation table]
