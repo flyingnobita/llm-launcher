@@ -1,4 +1,4 @@
-# LLM Launcher
+# LLM Launcher (`llml`)
 
 [![Go](https://img.shields.io/github/go-mod/go-version/flyingnobita/llm-launcher)](go.mod)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -80,7 +80,7 @@ go build -o llml ./cmd/llml
 Install on your `PATH` if you like:
 
 ```bash
-go install github.com/flyingnobita/llm-launcher/cmd/llml@latest
+go install github.com/flyingnobita/llml/cmd/llml@latest
 ```
 
 (Ensure `$(go env GOPATH)/bin` is on your `PATH`.)
