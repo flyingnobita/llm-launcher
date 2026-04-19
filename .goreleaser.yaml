@@ -53,7 +53,7 @@ checksum:
 homebrew_casks:
   - name: llml
     ids:
-      - llml
+      - default
     binaries:
       - llml
     homepage: https://github.com/flyingnobita/llml
@@ -71,7 +71,7 @@ homebrew_casks:
 scoops:
   - name: llml
     ids:
-      - llml
+      - default
     homepage: https://github.com/flyingnobita/llml
     description: Terminal UI to discover local models and launch llama-server or vLLM
     license: MIT
@@ -87,7 +87,7 @@ scoops:
 winget:
   - name: llml
     ids:
-      - llml
+      - default
     publisher: Flying Nobita
     publisher_url: https://github.com/flyingnobita
     publisher_support_url: https://github.com/flyingnobita/llml/issues

@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 Format: `- MMM-DD, YYYY - HH:MM AM/PM TIMEZONE - [Concise summary]`
 
+- Apr-19, 2026 - [v0.3.2 release: GoReleaser winget/scoop/cask `ids` point at archive id `default` (was build id `llml`, broke winget zip selection)]
 - Apr-19, 2026 - [v0.3.1 release: fix GoReleaser `skip_upload` with `eq (index .Env "…") ""` for winget/scoop/cask (no `env()` in 2.15; no sprig in CI `skip_upload` context); `homebrew_casks.binaries`; pin GoReleaser v2.15.3 in CI and mise; `scripts/goreleaser-check.sh` so `mise run check` uses the pinned binary; README toolchain note]
 - Apr-19, 2026 - [v0.3.0 release: packaging-only bump; triggers GoReleaser winget PR to microsoft/winget-pkgs]
 - Apr-19, 2026 - [Docs: Homebrew cask maintainer steps, `binary`→`binaries` GoReleaser note, mise.toml comment]
