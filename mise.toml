@@ -5,8 +5,8 @@
 [tools]
 go = "latest"
 node = "lts"
-# Pin matches goreleaser-action `~> v2` on CI (template syntax must match that version).
-goreleaser = "2.15.3"
+# Pin aligns with homebrew_casks `binary:`; bump past 2.12.6 then switch to `binaries:` in .goreleaser.yaml per upstream.
+goreleaser = "2.12.2"
 "pipx:pre-commit" = "latest"
 
 [tasks]
@@ -20,8 +20,7 @@ prettier-fix = "npx prettier --write \"**/*.{md,yaml,yml,json}\" \".prettierrc\"
 prettier-check = "npx prettier --check \"**/*.{md,yaml,yml,json}\" \".prettierrc\""
 markdownlint-fix = "npx markdownlint-cli2 --fix \"**/*.md\" \"#**/skills/**\""
 markdownlint-check = "npx markdownlint-cli2 \"**/*.md\" \"#**/skills/**\""
-# Script resolves the pinned mise goreleaser (nested `mise run` + `go install` goreleaser on PATH otherwise breaks `check`).
-goreleaser-check = "scripts/goreleaser-check.sh"
+goreleaser-check = "goreleaser check"
 format = "mise run fmt && mise run prettier-fix && mise run markdownlint-fix"
 lint = "mise run fmt-check && mise run vet && mise run prettier-check && mise run markdownlint-check && mise run goreleaser-check"
 check = "mise run lint && mise run test"

@@ -4,13 +4,7 @@ All notable changes to this project will be documented in this file.
 
 Format: `- MMM-DD, YYYY - HH:MM AM/PM TIMEZONE - [Concise summary]`
 
-- Apr-19, 2026 - [Remove Scoop: GoReleaser `scoops`, `SCOOP_BUCKET_GITHUB_TOKEN` from release workflow, README/AGENTS install and maintainer docs; GitHub releases and tags `v0.3.0`–`v0.3.3` removed; `llml-*` branches removed on `flyingnobita/winget-pkgs` fork]
-- Apr-19, 2026 - [VERSION reset to 0.2.0 in repo root]
-- Apr-19, 2026 - [Remove GoReleaser winget publishing, `WINGET_GITHUB_TOKEN` from release workflow, winget fork sync workflow, and `scripts/setup-winget-fork.sh`; README/AGENTS de-scoped from automated winget PRs]
-- Apr-19, 2026 - [v0.3.3 release: homebrew cask opens PR to `main` (`homebrew-cask-<version>`); release workflow `pull-requests: write`; README `WINGET_GITHUB_TOKEN` PAT notes for upstream PR (classic `public_repo` / `repo`)]
-- Apr-19, 2026 - [v0.3.2 release: GoReleaser winget/scoop/cask `ids` point at archive id `default` (was build id `llml`, broke winget zip selection)]
-- Apr-19, 2026 - [v0.3.1 release: fix GoReleaser `skip_upload` with `eq (index .Env "…") ""` for winget/scoop/cask (no `env()` in 2.15; no sprig in CI `skip_upload` context); `homebrew_casks.binaries`; pin GoReleaser v2.15.3 in CI and mise; `scripts/goreleaser-check.sh` so `mise run check` uses the pinned binary; README toolchain note]
-- Apr-19, 2026 - [v0.3.0 release: packaging-only bump; triggers GoReleaser winget PR to microsoft/winget-pkgs]
+- Apr-19, 2026 - [Chore: restore tracked tree to commit f878385 (Homebrew cask docs baseline); main is protected so history was not rewritten]
 - Apr-19, 2026 - [Docs: Homebrew cask maintainer steps, `binary`→`binaries` GoReleaser note, mise.toml comment]
 - Apr-19, 2026 - [GoReleaser: migrate deprecated `brews` to `homebrew_casks` (Casks/llml.rb); README and AGENTS install paths use `brew install --cask`]
 - Apr-19, 2026 - [CI: `goreleaser check` via mise; winget fork sync workflow + `scripts/setup-winget-fork.sh`; README maintainer automation table]
