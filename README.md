@@ -58,12 +58,19 @@ go install github.com/flyingnobita/llml/cmd/llml@v0.2.0
 
 There is no separate module registry: public Git tags on this repo are enough for the Go proxy and checksum database.
 
-#### Homebrew (custom tap)
+#### Homebrew (tap in this repo)
 
-macOS or Linux with [Homebrew](https://brew.sh/). Maintainers publish the formula to the [`flyingnobita/homebrew-tap`](https://github.com/flyingnobita/homebrew-tap) repository when a `v*` tag is released (see [Releases and packaging](#releases-and-packaging) below).
+macOS or Linux with [Homebrew](https://brew.sh/). The formula is [`Formula/llml.rb`](Formula/llml.rb) in this repository; GoReleaser updates it on each `v*` tag using the release workflow’s `GITHUB_TOKEN` (see [Releases and packaging](#releases-and-packaging)).
 
 ```bash
-brew install flyingnobita/tap/llml
+brew tap flyingnobita/llml
+brew install llml
+```
+
+One-liner:
+
+```bash
+brew install flyingnobita/llml/llml
 ```
 
 #### Scoop (Windows)
@@ -130,15 +137,16 @@ To install a development build from your clone, use `go install ./cmd/llml` from
 
 Tags matching `v*` trigger [.github/workflows/release.yml](.github/workflows/release.yml), which runs [GoReleaser](https://goreleaser.com/) and publishes GitHub Release archives plus checksums.
 
-Optional automation (off until you add secrets on this repository):
+**Homebrew:** GoReleaser commits updates to [`Formula/llml.rb`](Formula/llml.rb) in this repo using the workflow’s default `GITHUB_TOKEN` (`contents: write` is already set on the job). No separate tap repository or `HOMEBREW_GITHUB_API_TOKEN` secret is required. If branch protection blocks bot commits to `main`, use a PAT with write access instead (set it as `GITHUB_TOKEN` in the workflow only if you adopt that pattern; otherwise adjust protection rules).
 
-| Secret                      | Purpose                                                                                                                                                                                                                                                                         |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `HOMEBREW_GITHUB_API_TOKEN` | Push the Homebrew formula to [`flyingnobita/homebrew-tap`](https://github.com/flyingnobita/homebrew-tap). Use a fine-grained or classic PAT with **Contents: Read and write** on that tap repo only. The default `GITHUB_TOKEN` on this repo cannot push to another repository. |
-| `SCOOP_BUCKET_GITHUB_TOKEN` | Push the Scoop manifest to [`flyingnobita/scoop-bucket`](https://github.com/flyingnobita/scoop-bucket). Same PAT pattern as above if one token has access to both tap and bucket. If unset, the release still succeeds; the Scoop manifest upload is skipped.                   |
-| `WINGET_GITHUB_TOKEN`       | Open a PR from your fork [`flyingnobita/winget-pkgs`](https://github.com/flyingnobita/winget-pkgs) into `microsoft/winget-pkgs` (`master`). Fork `microsoft/winget-pkgs` first, then create a PAT that can push to your fork. If unset, winget PR creation is skipped.          |
+Optional automation for **other** publishers (off until you add secrets on this repository):
 
-Create empty GitHub repositories for the tap and bucket before the first release that should publish them. **homebrew-core** is not targeted yet; the custom tap is the supported Brew path.
+| Secret                      | Purpose                                                                                                                                                                                                                                                                |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SCOOP_BUCKET_GITHUB_TOKEN` | Push the Scoop manifest to [`flyingnobita/scoop-bucket`](https://github.com/flyingnobita/scoop-bucket). Use a fine-grained or classic PAT with **Contents: Read and write** on that bucket repo. If unset, the Scoop manifest upload is skipped.                       |
+| `WINGET_GITHUB_TOKEN`       | Open a PR from your fork [`flyingnobita/winget-pkgs`](https://github.com/flyingnobita/winget-pkgs) into `microsoft/winget-pkgs` (`master`). Fork `microsoft/winget-pkgs` first, then create a PAT that can push to your fork. If unset, winget PR creation is skipped. |
+
+Create an empty GitHub repository for the Scoop bucket before the first release that should publish it. **homebrew-core** is not targeted yet; the tap-in-repo path is the supported Brew install.
 
 ### Start
 

@@ -57,13 +57,13 @@ brews:
     homepage: https://github.com/flyingnobita/llml
     description: Terminal UI to discover local models and launch llama-server or vLLM
     license: MIT
-    skip_upload: '{{ eq (env "HOMEBREW_GITHUB_API_TOKEN") "" }}'
+    skip_upload: '{{ eq (env "GITHUB_TOKEN") "" }}'
     test: |
       system "#{bin}/llml", "-version"
     repository:
       owner: flyingnobita
-      name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_GITHUB_API_TOKEN }}"
+      name: llml
+      token: "{{ .Env.GITHUB_TOKEN }}"
     commit_author:
       name: goreleaserbot
       email: bot@goreleaser.com
