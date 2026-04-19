@@ -76,13 +76,7 @@ scoop install llml
 
 #### winget (Windows)
 
-Once the package is accepted into [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) (GoReleaser can open a PR from a fork when `WINGET_GITHUB_TOKEN` is configured), install with:
-
-```powershell
-winget install --id FlyingNobita.llml
-```
-
-Until the manifest is merged upstream, use Scoop, `go install`, or a release archive.
+This repository’s release workflow does **not** publish to [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs). Use Scoop, `go install`, or a release archive on Windows. A future winget manifest would be maintained separately.
 
 #### Pre-built binaries
 
@@ -135,24 +129,21 @@ Tags matching `v*` trigger [.github/workflows/release.yml](.github/workflows/rel
 - If you prefer direct commits to **`main`** instead of a PR, remove **`repository.branch`** / **`pull_request`** from **`homebrew_casks`** and relax branch protection for **`Casks/**`\*\* (or use a PAT with bypass rights).
 - **Upgrading from the old formula:** run `brew uninstall llml` once, then `brew install --cask llml` as above.
 - **After the first cask release:** remove any leftover **`Formula/llml.rb`** on `main` so the tap only ships the cask (avoids duplicate/conflicting definitions).
-- **Toolchain note:** [mise.toml](mise.toml) and [.github/workflows/release.yml](.github/workflows/release.yml) pin **GoReleaser v2.15.3**. `homebrew_casks` uses **`binaries: [llml]`** (the old `binary:` key is deprecated). In **`winget`**, **`scoops`**, and **`homebrew_casks`**, **`ids`** must reference the **archive id** (here **`default`** from [`.goreleaser.yaml`](.goreleaser.yaml)), not the Go **`builds`** id. Optional publishers use **`skip_upload`** templates with **`eq (index .Env "…") ""`** (built-in `index` only; the **`env`** helper is gone in 2.15 and Sprig helpers like **`empty`/`default`** are not available in this template context on CI). Local **`mise run check`** runs **`scripts/goreleaser-check.sh`** so the pinned GoReleaser wins over a stray **`go install`** copy on `PATH`.
+- **Toolchain note:** [mise.toml](mise.toml) and [.github/workflows/release.yml](.github/workflows/release.yml) pin **GoReleaser v2.15.3**. `homebrew_casks` uses **`binaries: [llml]`** (the old `binary:` key is deprecated). In **`scoops`** and **`homebrew_casks`**, **`ids`** must reference the **archive id** (here **`default`** from [`.goreleaser.yaml`](.goreleaser.yaml)), not the Go **`builds`** id. Optional publishers use **`skip_upload`** templates with **`eq (index .Env "…") ""`** (built-in `index` only; the **`env`** helper is gone in 2.15 and Sprig helpers like **`empty`/`default`** are not available in this template context on CI). Local **`mise run check`** runs **`scripts/goreleaser-check.sh`** so the pinned GoReleaser wins over a stray **`go install`** copy on `PATH`.
 
 Optional automation for **other** publishers (off until you add secrets on this repository):
 
-| Secret                      | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SCOOP_BUCKET_GITHUB_TOKEN` | Push the Scoop manifest to [`flyingnobita/scoop-bucket`](https://github.com/flyingnobita/scoop-bucket). Use a fine-grained or classic PAT with **Contents: Read and write** on that bucket repo. If unset, the Scoop manifest upload is skipped.                                                                                                                                                                                                                                                                                                                                      |
-| `WINGET_GITHUB_TOKEN`       | Push manifests to [`flyingnobita/winget-pkgs`](https://github.com/flyingnobita/winget-pkgs) and **open a PR** into [`microsoft/winget-pkgs`](https://github.com/microsoft/winget-pkgs) (`master`). Fork upstream first. Needs **Contents: Read and write** on your fork. Opening the upstream PR requires a **classic PAT** with **`public_repo`** (or **`repo`**) so `POST /repos/microsoft/winget-pkgs/pulls` is allowed; fine-grained tokens often hit **403** unless you can add **`microsoft/winget-pkgs`** with **Pull requests: Read and write**. If unset, winget is skipped. |
+| Secret                      | Purpose                                                                                                                                                                                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SCOOP_BUCKET_GITHUB_TOKEN` | Push the Scoop manifest to [`flyingnobita/scoop-bucket`](https://github.com/flyingnobita/scoop-bucket). Use a fine-grained or classic PAT with **Contents: Read and write** on that bucket repo. If unset, the Scoop manifest upload is skipped. |
 
 Create an empty GitHub repository for the Scoop bucket before the first release that should publish it. **homebrew-core** is not targeted yet; the supported Brew path is **this tap + cask** (`brew install --cask …`).
 
 #### Maintainer automation
 
-| What                           | How                                                                                                                                                                                                      |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Validate GoReleaser config     | `mise run goreleaser-check` (also runs as part of `mise run lint` / CI). Covers `homebrew_casks`, Scoop, winget, and builds.                                                                             |
-| winget fork + first-time setup | Run [`scripts/setup-winget-fork.sh`](scripts/setup-winget-fork.sh) locally with `gh auth login` (creates `your-user/winget-pkgs` if missing, then `gh repo sync`).                                       |
-| winget fork sync from GitHub   | Actions → **Sync winget-pkgs fork** ([`.github/workflows/winget-fork-sync.yml`](.github/workflows/winget-fork-sync.yml)). Uses `WINGET_GITHUB_TOKEN`. On a weekly schedule only when that secret is set. |
+| What                       | How                                                                                                                  |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Validate GoReleaser config | `mise run goreleaser-check` (also runs as part of `mise run lint` / CI). Covers `homebrew_casks`, Scoop, and builds. |
 
 ### Start
 
