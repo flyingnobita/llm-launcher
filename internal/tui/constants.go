@@ -157,10 +157,6 @@ const (
 	runtimeConfigLabelLlamaPort    = "Server Port"
 	runtimeConfigLabelVLLMPort     = "Server Port"
 
-	// Discovery paths modal.
-	FooterDiscoveryPathsHints   = FooterNavHint + FooterHintSep + "n: add · enter: edit · d: delete · s: save · esc: back"
-	discoveryPathsModalSubtitle = "These paths are saved to config.toml and scanned in addition to the defaults below."
-
 	// FooterHintTabSections is the shared "tab: sections" fragment used by split-pane
 	// and parameter modal footers.
 	FooterHintTabSections = "tab: sections"
@@ -168,15 +164,18 @@ const (
 
 	// Alphabetical by name; footer lines use the same middle action order where modes
 	// overlap: create (n/a) → delete → rename or edit → back.
-	FooterParamHintAddRow     = "a: add"
-	FooterParamHintBack       = "esc: back"
-	FooterParamHintDelete     = "d: delete"
-	FooterParamHintEnterEdit  = "enter: edit"
-	FooterParamHintAddProfile = "n: add"
-	FooterParamHintClone      = "c: clone"
-	FooterParamHintRename     = "r: rename"
+	FooterParamHintAdd = "a: add"
 
-	FooterParamFooterProfiles    = FooterHintTabSections + FooterHintSep + FooterNavHint + FooterHintSep + FooterParamHintAddProfile + FooterHintSep + FooterParamHintClone + FooterHintSep + FooterParamHintDelete + FooterHintSep + FooterParamHintRename + FooterHintSep + FooterParamHintBack
-	FooterParamFooterDetailEmpty = FooterHintTabSections + FooterHintSep + FooterNavHint + FooterHintSep + FooterParamHintAddRow + FooterHintSep + FooterParamHintDelete + FooterHintSep + FooterParamHintBack
-	FooterParamFooterDetailRows  = FooterHintTabSections + FooterHintSep + FooterNavHint + FooterHintSep + FooterParamHintAddRow + FooterHintSep + FooterParamHintDelete + FooterHintSep + FooterParamHintEnterEdit + FooterHintSep + FooterParamHintBack
+	// Discovery paths modal.
+	FooterDiscoveryPathsHints   = FooterNavHint + FooterHintSep + FooterParamHintAdd + FooterHintSep + "enter: edit · d: delete · s: save · esc: back"
+	discoveryPathsModalSubtitle = "These paths are saved to config.toml and scanned in addition to the defaults below."
+	FooterParamHintBack         = "esc: back"
+	FooterParamHintDelete       = "d: delete"
+	FooterParamHintEnterEdit    = "enter: edit"
+	FooterParamHintClone        = "c: clone"
+	FooterParamHintRename       = "r: rename"
+
+	FooterParamFooterProfiles    = FooterHintTabSections + FooterHintSep + FooterNavHint + FooterHintSep + FooterParamHintAdd + FooterHintSep + FooterParamHintClone + FooterHintSep + FooterParamHintDelete + FooterHintSep + FooterParamHintRename + FooterHintSep + FooterParamHintBack
+	FooterParamFooterDetailEmpty = FooterHintTabSections + FooterHintSep + FooterNavHint + FooterHintSep + FooterParamHintAdd + FooterHintSep + FooterParamHintDelete + FooterHintSep + FooterParamHintBack
+	FooterParamFooterDetailRows  = FooterHintTabSections + FooterHintSep + FooterNavHint + FooterHintSep + FooterParamHintAdd + FooterHintSep + FooterParamHintDelete + FooterHintSep + FooterParamHintEnterEdit + FooterHintSep + FooterParamHintBack
 )

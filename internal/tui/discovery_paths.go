@@ -156,7 +156,7 @@ func (m Model) updateDiscoveryPathsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m.discovery.cursor++
 		}
 		return m, nil
-	case "n":
+	case "a":
 		return m.startDiscoveryPathEdit(true)
 	case "enter":
 		if len(m.discovery.paths) > 0 {

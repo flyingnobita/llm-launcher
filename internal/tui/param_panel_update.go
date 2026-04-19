@@ -346,12 +346,6 @@ func (m Model) updateParamPanelKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			}
 		}
 		return m, nil
-	case "n":
-		if m.params.focus == paramFocusProfiles {
-			m = m.addProfile()
-			return m.persistParamPanel()
-		}
-		return m, nil
 	case "c":
 		if m.params.focus == paramFocusProfiles {
 			m = m.duplicateProfile()
@@ -359,6 +353,10 @@ func (m Model) updateParamPanelKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		}
 		return m, nil
 	case "a":
+		if m.params.focus == paramFocusProfiles {
+			m = m.addProfile()
+			return m.persistParamPanel()
+		}
 		if m.params.focus == paramFocusEnv || m.params.focus == paramFocusArgs {
 			var cmd tea.Cmd
 			m, cmd = m.addParamRow()
