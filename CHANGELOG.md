@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 Format: `- MMM-DD, YYYY - HH:MM AM/PM TIMEZONE - [Concise summary]`
 
+- Apr-19, 2026 - 11:27 PM +0800 - [v0.2.2 release: fix GitHub Actions CI failure with GoReleaser template functions]
+- Apr-19, 2026 - [CI: replace deprecated `env` template function with `isEnvSet` in `.goreleaser.yaml` to fix GoReleaser v2 failures]
+
 - Apr-19, 2026 - 11:20 PM +0800 - [v0.2.1 release: switch to Homebrew formula distribution to bypass Gatekeeper]
 - Apr-19, 2026 - [Homebrew: switch distribution from Cask to Formula via GoReleaser `brews` to bypass macOS Gatekeeper unsigned binary quarantine]
 - Apr-19, 2026 - [Homebrew: drop `license` from cask and GoReleaser `homebrew_casks` (undefined method on older Homebrew)]
