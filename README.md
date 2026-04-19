@@ -10,7 +10,7 @@ tired of reconstructing launch commands from shell history.
 
 It scans your local filesystem for **GGUF** and **Hugging Face-style safetensors** models,
 detects installed runtimes (**[llama.cpp](https://github.com/ggerganov/llama.cpp)** and
-**[vLLM](https://github.com/vllm-project/vllm)**), and lets you save named launch presets
+**[vLLM](https://github.com/vllm-project/vllm)**), and lets you save named parameter profiles
 per model — so the command that worked last time is always one keystroke away.
 
 Browse local models. Detect the right runtime. Launch with one key.
@@ -23,10 +23,10 @@ Browse local models. Detect the right runtime. Launch with one key.
   filesystem walk when the cache is still valid.
 - **Runtime detection** — finds installed `llama-server` and `vllm` binaries and maps
   each model to its compatible runtime.
-- **Named presets** — save multiple launch presets per model (e.g. `fast-laptop`,
+- **Named parameter profiles** — save multiple profiles per model (e.g. `fast-laptop`,
   `quality`, `api-8080`), each storing runtime args, env vars, port, and context
-  settings. The preset that worked last time is always one key away.
-- **One-keystroke launch** — select a model, select a preset, press `R`. The generated
+  settings. The active profile is always one key away.
+- **One-keystroke launch** — select a model, select a profile, press `R`. The generated
   command is shown before execution and server output streams directly in the TUI.
 - **Zero required setup** — common model directories and binary locations are checked
   automatically; configure only what differs from the defaults.
@@ -50,49 +50,22 @@ Requires [Go 1.26+](go.mod). Ensure `$(go env GOPATH)/bin` is on your `PATH`.
 go install github.com/flyingnobita/llml/cmd/llml@latest
 ```
 
-#### Homebrew (formula in this repository)
-
-macOS or Linux with [Homebrew](https://brew.sh/). The formula file lives in **this** repo ([`Formula/llml.rb`](Formula/llml.rb)); GoReleaser’s `brews` block updates it on each `v*` tag using the release workflow’s `GITHUB_TOKEN` (see [Releases and packaging](#releases-and-packaging)).
-
-Homebrew’s default tap URL for `user/repo` is `https://github.com/user/homebrew-repo`, so `flyingnobita/llml` would look for [`homebrew-llml`](https://github.com/flyingnobita/homebrew-llml), which does not exist. Point the tap at this repository explicitly:
+#### Homebrew
 
 ```bash
 brew tap flyingnobita/llml https://github.com/flyingnobita/llml.git
 brew install llml
 ```
 
-After that tap exists locally, you can reinstall with:
-
-```bash
-brew install flyingnobita/llml/llml
-```
-
-#### Scoop (Windows)
-
-Requires [Scoop](https://scoop.sh/). Add the [Scoop bucket](https://github.com/flyingnobita/scoop-bucket) that holds the `llml` manifest, then install:
-
-```powershell
-scoop bucket add flyingnobita https://github.com/flyingnobita/scoop-bucket
-scoop install llml
-```
-
-#### winget (Windows)
-
-Once the package is accepted into [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) (GoReleaser can open a PR from a fork when `WINGET_GITHUB_TOKEN` is configured), install with:
-
-```powershell
-winget install --id FlyingNobita.llml
-```
-
-Until the manifest is merged upstream, use Scoop, `go install`, or a release archive.
+Upgrade later with `brew upgrade llml`.
 
 #### Pre-built binaries
 
-For each [GitHub release](https://github.com/flyingnobita/llml/releases), archives are published for Linux and macOS (`tar.gz`) plus Windows (`zip`). Download the archive for your OS and CPU, extract the `llml` binary.
+For each [GitHub release](https://github.com/flyingnobita/llml/releases), archives are published for Linux and macOS (`tar.gz`) plus Windows (`zip`). Names follow GoReleaser’s pattern, for example `llml_1.2.3_Linux_x86_64.tar.gz`, `llml_1.2.3_Darwin_arm64.tar.gz`, or `llml_1.2.3_Windows_x86_64.zip` (adjust version and OS/arch to match your download). Extract the `llml` binary.
 
 ```bash
-# Example: replace with the file you downloaded
-tar -xzf llml_<version>_<os>_<arch>.tar.gz
+# Example: Linux x86_64 — use the archive name from the release you downloaded
+tar -xzf llml_1.2.3_Linux_x86_64.tar.gz
 chmod +x llml
 ```
 
@@ -111,7 +84,7 @@ mv llml "$HOME/.local/bin/llml"
 
 (Ensure `~/.local/bin` is on your `PATH`.)
 
-Verify the download against `llml_<version>_checksums.txt` on the release page if you rely on checksums.
+Verify the download against `llml_<version>_checksums.txt` on the release page if you rely on checksums (for example `llml_1.2.3_checksums.txt`).
 
 ### Build from source
 
@@ -126,33 +99,6 @@ go build -o llml ./cmd/llml
 ```
 
 To install a development build from your clone, use `go install ./cmd/llml` from the repo root, or copy the `llml` binary onto your `PATH`.
-
-### Releases and packaging
-
-Tags matching `v*` trigger [.github/workflows/release.yml](.github/workflows/release.yml), which runs [GoReleaser](https://goreleaser.com/) and publishes GitHub Release archives plus checksums.
-
-**Homebrew (formula, not default core):**
-
-- GoReleaser publishes via **`brews`** in [`.goreleaser.yaml`](.goreleaser.yaml), committing [`Formula/llml.rb`](Formula/llml.rb) into **this** repo using the workflow’s **`GITHUB_TOKEN`** (`contents: write` is already set on the job). No separate tap repository and no `HOMEBREW_GITHUB_API_TOKEN`. Users must **`brew tap flyingnobita/llml https://github.com/flyingnobita/llml.git`** once (see [Homebrew](#homebrew-formula-in-this-repository)); a bare `brew tap flyingnobita/llml` clones the wrong GitHub repo by convention.
-- If **branch protection** blocks the Actions bot from pushing to `main`, relax rules for `Formula/**` or use a PAT with write access (only if you adopt overriding `GITHUB_TOKEN` in the workflow).
-- **Toolchain note:** [mise.toml](mise.toml) pins **GoReleaser 2.12.2**.
-
-Optional automation for **other** publishers (off until you add secrets on this repository):
-
-| Secret                      | Purpose                                                                                                                                                                                                                                                                |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SCOOP_BUCKET_GITHUB_TOKEN` | Push the Scoop manifest to [`flyingnobita/scoop-bucket`](https://github.com/flyingnobita/scoop-bucket). Use a fine-grained or classic PAT with **Contents: Read and write** on that bucket repo. If unset, the Scoop manifest upload is skipped.                       |
-| `WINGET_GITHUB_TOKEN`       | Open a PR from your fork [`flyingnobita/winget-pkgs`](https://github.com/flyingnobita/winget-pkgs) into `microsoft/winget-pkgs` (`master`). Fork `microsoft/winget-pkgs` first, then create a PAT that can push to your fork. If unset, winget PR creation is skipped. |
-
-Create an empty GitHub repository for the Scoop bucket before the first release that should publish it. **homebrew-core** is not targeted yet; the supported Brew path is **this tap + formula** (`brew install llml`).
-
-#### Maintainer automation
-
-| What                           | How                                                                                                                                                                                                      |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Validate GoReleaser config     | `mise run goreleaser-check` (also runs as part of `mise run lint` / CI). Covers `homebrew_casks`, Scoop, winget, and builds.                                                                             |
-| winget fork + first-time setup | Run [`scripts/setup-winget-fork.sh`](scripts/setup-winget-fork.sh) locally with `gh auth login` (creates `your-user/winget-pkgs` if missing, then `gh repo sync`).                                       |
-| winget fork sync from GitHub   | Actions → **Sync winget-pkgs fork** ([`.github/workflows/winget-fork-sync.yml`](.github/workflows/winget-fork-sync.yml)). Uses `WINGET_GITHUB_TOKEN`. On a weekly schedule only when that secret is set. |
 
 ### Start
 
@@ -175,14 +121,18 @@ Place models under default scan locations (see [Model configuration and discover
 | `ctrl`+`R`  | Run server full-screen                                                             |
 | `c`         | Edit runtime environment (paths, ports)                                            |
 | `p`         | Edit parameter profiles for the selected model                                     |
+| `m`         | Edit extra model search paths (saved in `config.toml`)                             |
+| `,` / `.`   | Change sort column / reverse sort direction                                        |
+| `enter`     | Copy the launch command for the selected row to the clipboard                      |
 | `t`         | Cycle theme (`dark` → `light` → `auto` → …)                                        |
+| `?`         | Toggle the full shortcut help overlay                                              |
 | `q`         | Quit                                                                               |
 
 ### Server output
 
 **`R`** runs the server in a **split layout**: the model table stays in the upper half and server logs stream into a scrollable pane below. **tab** switches focus between the two panes; **esc**, **q**, or **ctrl+c** stops the server.
 
-**ctrl+`R`** runs full-screen: the TUI is suspended and the server process is attached directly to your terminal. On Linux/macOS you are prompted to press Enter to return to the TUI when done.
+**ctrl+`R`** runs full-screen: the TUI is suspended and the server process is attached directly to your terminal. On Linux/macOS, after the server exits you are prompted to press Enter before the TUI redraws. On Windows there is no Enter prompt; you return when the server process exits.
 
 ### Parameter profiles (`p`)
 
@@ -191,7 +141,7 @@ Each model path can have **multiple named profiles**. Each profile stores:
 - **Environment variables** (`KEY=value` per line).
 - **Extra arguments** appended after `--port` (for vLLM, flags and values are separate argv tokens; the UI may show `--flag value` on one line).
 
-**`R`** / **ctrl+`R`** use the **active** profile (the highlighted row in the `p` profile list is prefixed with **`(active)`** in the name column). Changes persist automatically. **tab** cycles: profile list → env → extra args. In the list: **`n`** new profile, **`c`** clone (duplicate) the highlighted profile, **`d`** delete (not the last), **`r`** rename. **`esc`** or **`q`** closes the panel.
+**`R`** / **ctrl+`R`** use the **active** profile (the highlighted row in the `p` profile list is prefixed with **`(active)`** in the name column). Changes persist automatically. **tab** cycles: profile list → env → extra args. On the profile list: **`a`** add profile, **`c`** clone (duplicate) the highlighted profile, **`d`** delete (not the last), **`r`** rename. **`esc`** closes the panel (and **`n`** cancels a delete confirmation).
 
 Storage is a single JSON file:
 
@@ -297,8 +247,9 @@ The table shows a decoded repo id from `models--*` hub folders when possible; ot
 Clone the repository and install tooling:
 
 ```bash
-mise install   # installs Go, Node.js + pre-commit hook
+mise install   # installs Go, Node.js, pre-commit (pipx), and other tools from mise.toml
 npm ci         # installs Prettier + markdownlint
+pre-commit install   # optional: enable git pre-commit / pre-push hooks (see .pre-commit-config.yaml)
 ```
 
 ### Common Tasks
