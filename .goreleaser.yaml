@@ -54,11 +54,12 @@ homebrew_casks:
   - name: llml
     ids:
       - llml
-    binary: llml
+    binaries:
+      - llml
     homepage: https://github.com/flyingnobita/llml
     description: Terminal UI to discover local models and launch llama-server or vLLM
     license: MIT
-    skip_upload: '{{ eq (env "GITHUB_TOKEN") "" }}'
+    skip_upload: '{{ empty (default "" (index .Env "GITHUB_TOKEN")) }}'
     repository:
       owner: flyingnobita
       name: llml
@@ -74,7 +75,7 @@ scoops:
     homepage: https://github.com/flyingnobita/llml
     description: Terminal UI to discover local models and launch llama-server or vLLM
     license: MIT
-    skip_upload: '{{ eq (env "SCOOP_BUCKET_GITHUB_TOKEN") "" }}'
+    skip_upload: '{{ empty (default "" (index .Env "SCOOP_BUCKET_GITHUB_TOKEN")) }}'
     repository:
       owner: flyingnobita
       name: scoop-bucket
@@ -94,7 +95,7 @@ winget:
     short_description: Terminal UI to discover local models and launch llama-server or vLLM
     license: mit
     homepage: https://github.com/flyingnobita/llml
-    skip_upload: '{{ eq (env "WINGET_GITHUB_TOKEN") "" }}'
+    skip_upload: '{{ empty (default "" (index .Env "WINGET_GITHUB_TOKEN")) }}'
     repository:
       owner: flyingnobita
       name: winget-pkgs

@@ -5,8 +5,8 @@
 [tools]
 go = "latest"
 node = "lts"
-# Pin aligns with homebrew_casks `binary:`; bump past 2.12.6 then switch to `binaries:` in .goreleaser.yaml per upstream.
-goreleaser = "2.12.2"
+# Pin matches goreleaser-action `~> v2` on CI (template syntax must match that version).
+goreleaser = "2.15.3"
 "pipx:pre-commit" = "latest"
 
 [tasks]
