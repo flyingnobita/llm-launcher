@@ -63,6 +63,12 @@ func TestDarkAndLightThemesDistinct(t *testing.T) {
 	if d.SplitPaneBorderFocused == l.SplitPaneBorderFocused {
 		t.Fatal("expected SplitPaneBorderFocused colors to differ between themes")
 	}
+	if d.ParamProfileInactive == d.ParamProfileName {
+		t.Fatal("expected ParamProfileInactive to differ from ParamProfileName (dark)")
+	}
+	if l.ParamProfileInactive == l.ParamProfileName {
+		t.Fatal("expected ParamProfileInactive to differ from ParamProfileName (light)")
+	}
 }
 
 func TestSplitPaneChromeStylesDifferFocusedVsDim(t *testing.T) {

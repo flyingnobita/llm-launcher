@@ -27,7 +27,7 @@ func (m Model) renderEditableListItems(items []string, sectionFocus paramFocus, 
 		if m.params.focus == sectionFocus {
 			prefix = "› "
 		}
-		return []string{m.ui.styles.body.Render(prefix + "(none)")}
+		return []string{m.ui.styles.paramDetailContent.Render(prefix + "(none)")}
 	}
 	rows := make([]string, 0, len(items))
 	for i, line := range items {
@@ -39,7 +39,7 @@ func (m Model) renderEditableListItems(items []string, sectionFocus paramFocus, 
 			if focused {
 				prefix = "› "
 			}
-			rows = append(rows, m.ui.styles.body.Render(prefix+truncateParamLine(line, maxSec)))
+			rows = append(rows, m.ui.styles.paramDetailContent.Render(prefix+truncateParamLine(line, maxSec)))
 		}
 	}
 	return rows
@@ -113,21 +113,26 @@ func (m Model) paramPanelModalBlock() string {
 	}
 
 	rows = append(rows, m.ui.styles.body.Render("  Profiles"))
-	activeSummary := "Active for R / copy cmd: " + m.activeProfileLabelForView()
-	rows = append(rows, m.ui.styles.bodyDim.Render("  "+truncateParamLine(activeSummary, max(8, maxLine-2))))
+	activeLabel := "Active for R / copy cmd: "
+	activeNameW := max(4, maxLine-2-lipgloss.Width("  "+activeLabel))
+	rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top,
+		m.ui.styles.bodyDim.Render("  "+activeLabel),
+		m.ui.styles.paramProfileName.Render(truncateParamLine(m.activeProfileLabelForView(), activeNameW)),
+	))
 	rows = append(rows, "")
 	for i := range m.params.profiles {
 		name := m.params.profiles[i].Name
 		if name == "" {
 			name = "(unnamed)"
 		}
-		focused := m.params.focus == paramFocusProfiles && i == m.params.profileIndex
+		activeRow := i == m.params.profileIndex
+		focused := m.params.focus == paramFocusProfiles && activeRow
 		switch {
 		case focused && m.params.editKind == paramEditProfileName:
 			rows = append(rows, m.params.editInput.View())
 		default:
 			prefix := "  "
-			if focused {
+			if activeRow {
 				prefix = "› "
 			}
 			pw := lipgloss.Width(prefix)
@@ -135,9 +140,13 @@ func (m Model) paramPanelModalBlock() string {
 			if nameW < 8 {
 				nameW = maxLine
 			}
+			nameStyle := m.ui.styles.paramProfileInactive
+			if activeRow {
+				nameStyle = m.ui.styles.paramProfileName
+			}
 			row := lipgloss.JoinHorizontal(lipgloss.Top,
 				m.ui.styles.body.Render(prefix),
-				m.ui.styles.paramProfileName.Render(truncateParamLine(name, nameW)),
+				nameStyle.Render(truncateParamLine(name, nameW)),
 			)
 			rows = append(rows, row)
 		}
@@ -149,8 +158,12 @@ func (m Model) paramPanelModalBlock() string {
 	rows = append(rows, "")
 	var detailRows []string
 	if m.params.focus == paramFocusEnv || m.params.focus == paramFocusArgs {
-		activeCtx := "Active profile: " + m.activeProfileLabelForView()
-		detailRows = append(detailRows, m.ui.styles.bodyDim.Render("  "+truncateParamLine(activeCtx, maxSec)))
+		apLabel := "  Active profile: "
+		apNameW := max(4, maxSec-lipgloss.Width(apLabel))
+		detailRows = append(detailRows, lipgloss.JoinHorizontal(lipgloss.Top,
+			m.ui.styles.bodyDim.Render(apLabel),
+			m.ui.styles.paramProfileName.Render(truncateParamLine(m.activeProfileLabelForView(), apNameW)),
+		))
 		detailRows = append(detailRows, "")
 	}
 	const sectionHeadingIndent = "  "

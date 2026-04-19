@@ -28,6 +28,8 @@ type styles struct {
 	paramSectionHeading    lipgloss.Style
 	themeToastInline       lipgloss.Style
 	paramProfileName       lipgloss.Style
+	paramProfileInactive   lipgloss.Style
+	paramDetailContent     lipgloss.Style
 	serverLogViewport      lipgloss.Style
 	splitPaneChromeFocused lipgloss.Style
 	splitPaneChromeDim     lipgloss.Style
@@ -105,6 +107,11 @@ func newStyles(theme Theme) styles {
 			Padding(0, 1),
 		paramProfileName: lipgloss.NewStyle().
 			Bold(true).
+			Foreground(theme.ParamProfileName),
+		paramProfileInactive: lipgloss.NewStyle().
+			Foreground(theme.ParamProfileInactive),
+		// Env / argv lines for the active profile: same hue as active name, not bold (readable blocks).
+		paramDetailContent: lipgloss.NewStyle().
 			Foreground(theme.ParamProfileName),
 		serverLogViewport: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).

@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 Format: `- MMM-DD, YYYY - HH:MM AM/PM TIMEZONE - [Concise summary]`
 
+- Apr-19, 2026 - [TUI: parameter profiles — inactive profile names dimmed; active name + env/argv lines share accent color]
 - Apr-19, 2026 - [TUI: parameter profiles (`p`) — show active profile for R/copy; `c` clones highlighted profile; footer hint for clone]
 - Apr-19, 2026 - [TUI: restore table vs launch-preview vs split-log keyboard focus after closing parameter profiles (`p`), runtime config (`c`), or model paths (`m`)]
 - Apr-19, 2026 - [TUI: refresh launch command preview immediately after saving Runtime Environment (`c`) or persisting parameter profiles; align discovery-path and run-error tests with batched cmds]
