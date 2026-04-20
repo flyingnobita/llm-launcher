@@ -551,6 +551,22 @@ func (m Model) View() tea.View {
 	return v
 }
 
+// discoveryRow renders one editable path row (with inline edit input when active).
+func (m Model) discoveryRow(i int, p string) string {
+	prefix := "  "
+	if i == m.discovery.cursor {
+		prefix = "› "
+	}
+	if m.discovery.editOpen && i == m.discovery.cursor {
+		return m.ui.styles.body.Render(prefix) + m.discovery.editInput.View()
+	}
+	style := m.ui.styles.body
+	if i == m.discovery.cursor {
+		style = m.ui.styles.bodyBold
+	}
+	return style.Render(prefix + p)
+}
+
 // discoveryPathsModalBlock returns the framed discovery paths configuration panel.
 func (m Model) discoveryPathsModalBlock() string {
 	cw := m.paramPanelContentWidth()
@@ -559,95 +575,59 @@ func (m Model) discoveryPathsModalBlock() string {
 		m.ui.styles.subtitle.Width(cw).Render(discoveryPathsModalSubtitle),
 		"",
 	}
-
 	for i, p := range m.discovery.paths {
-		prefix := "  "
-		if i == m.discovery.cursor {
-			prefix = "› "
-		}
-		if m.discovery.editOpen && i == m.discovery.cursor {
-			rows = append(rows, m.ui.styles.body.Render(prefix)+m.discovery.editInput.View())
-		} else {
-			style := m.ui.styles.body
-			if i == m.discovery.cursor {
-				style = m.ui.styles.bodyBold
-			}
-			rows = append(rows, style.Render(prefix+p))
-		}
+		rows = append(rows, m.discoveryRow(i, p))
 	}
-
 	if m.discovery.editOpen && m.discovery.cursor == len(m.discovery.paths) {
 		rows = append(rows, m.ui.styles.body.Render("› ")+m.discovery.editInput.View())
 	}
-
 	if len(m.discovery.paths) == 0 && !m.discovery.editOpen {
 		rows = append(rows, m.ui.styles.bodyDim.Render("  (No extra paths configured)"))
 	}
-
-	rows = append(rows, "")
-	rows = append(rows, m.ui.styles.body.Render("Defaults (Read-Only):"))
-
+	rows = append(rows, "", m.ui.styles.body.Render("Defaults (Read-Only):"))
 	for _, p := range models.DefaultSearchRoots() {
 		rows = append(rows, m.ui.styles.bodyDim.Render("  "+p))
 	}
-
-	rows = append(rows, "")
-	rows = append(rows, m.ui.styles.footer.Render(FooterDiscoveryPathsHints))
-
+	rows = append(rows, "", m.ui.styles.footer.Render(FooterDiscoveryPathsHints))
 	block := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	return m.ui.styles.portConfigBox.Render(block)
+}
+
+// runtimeFieldRow renders a label + input pair for one runtime config field.
+func (m Model) runtimeFieldRow(fieldID runtimeField, label string) []string {
+	prefix := "  "
+	if m.rc.focus == fieldID {
+		prefix = "› "
+	}
+	return []string{
+		m.ui.styles.body.Render(prefix + label),
+		m.rc.inputs[fieldID].View(),
+	}
 }
 
 // runtimeConfigModalBlock returns the framed runtime configuration panel only
 // (no full-screen placement). Composed over the main view via [overlayCentered].
 // [runtimePanelView] is shown under the title.
 func (m Model) runtimeConfigModalBlock() string {
-	label := func(focused bool, name string) string {
-		prefix := "  "
-		if focused {
-			prefix = "› "
-		}
-		return m.ui.styles.body.Render(prefix + name)
-	}
-	header := func(text string) string {
-		return m.ui.styles.bodyBold.Render(text)
-	}
 	cw := m.paramPanelContentWidth()
+	header := func(text string) string { return m.ui.styles.bodyBold.Render(text) }
 
-	// Build the llama.cpp column
-	llamaRows := []string{
-		header(runtimeConfigHeaderLlama),
-		"",
-		label(m.rc.focus == runtimeFieldLlamaCppPath, runtimeConfigLabelLlamaCppPath),
-		m.rc.inputs[runtimeFieldLlamaCppPath].View(),
-		"",
-		label(m.rc.focus == runtimeFieldLlamaPort, runtimeConfigLabelLlamaPort),
-		m.rc.inputs[runtimeFieldLlamaPort].View(),
-	}
+	llamaRows := append([]string{header(runtimeConfigHeaderLlama), ""},
+		append(m.runtimeFieldRow(runtimeFieldLlamaCppPath, runtimeConfigLabelLlamaCppPath),
+			append([]string{""}, m.runtimeFieldRow(runtimeFieldLlamaPort, runtimeConfigLabelLlamaPort)...)...)...)
 	llamaBlock := lipgloss.JoinVertical(lipgloss.Left, llamaRows...)
 
-	// Build the vLLM column
-	vllmRows := []string{
-		header(runtimeConfigHeaderVLLM),
-		"",
-		label(m.rc.focus == runtimeFieldVLLMPath, runtimeConfigLabelVLLMPath),
-		m.rc.inputs[runtimeFieldVLLMPath].View(),
-		"",
-		label(m.rc.focus == runtimeFieldVLLMVenv, runtimeConfigLabelVLLMVenv),
-		m.rc.inputs[runtimeFieldVLLMVenv].View(),
-		"",
-		label(m.rc.focus == runtimeFieldVLLMPort, runtimeConfigLabelVLLMPort),
-		m.rc.inputs[runtimeFieldVLLMPort].View(),
-	}
+	vllmRows := append([]string{header(runtimeConfigHeaderVLLM), ""},
+		append(m.runtimeFieldRow(runtimeFieldVLLMPath, runtimeConfigLabelVLLMPath),
+			append([]string{""},
+				append(m.runtimeFieldRow(runtimeFieldVLLMVenv, runtimeConfigLabelVLLMVenv),
+					append([]string{""}, m.runtimeFieldRow(runtimeFieldVLLMPort, runtimeConfigLabelVLLMPort)...)...)...)...)...)
 	vllmBlock := lipgloss.JoinVertical(lipgloss.Left, vllmRows...)
 
 	var inputBlock string
 	if cw >= 80 {
-		// Side-by-side layout: llama on left, vLLM on right
-		vllmBlock = m.ui.styles.body.PaddingLeft(4).Render(vllmBlock)
-		inputBlock = lipgloss.JoinHorizontal(lipgloss.Top, llamaBlock, vllmBlock)
+		inputBlock = lipgloss.JoinHorizontal(lipgloss.Top, llamaBlock, m.ui.styles.body.PaddingLeft(4).Render(vllmBlock))
 	} else {
-		// Stacked layout: llama then vLLM
 		inputBlock = lipgloss.JoinVertical(lipgloss.Left, llamaBlock, "", vllmBlock)
 	}
 
