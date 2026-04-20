@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -14,16 +13,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/flyingnobita/llml/internal/models"
 )
-
-// shellSingleQuoted returns s wrapped in single quotes for POSIX sh (safe for paths with spaces).
-func shellSingleQuoted(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", `'"'"'`) + "'"
-}
-
-// llamaServerAlias returns the API model id alias: leaf name of the GGUF path (matches File Name column).
-func llamaServerAlias(modelPath string) string {
-	return filepath.Base(filepath.Clean(modelPath))
-}
 
 // llamaCommandWords returns escaped shell tokens for llama-server (same order as the executed argv).
 func llamaCommandWords(bin, modelPath string, port int, params ModelParams) []string {
