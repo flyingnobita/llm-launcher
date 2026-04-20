@@ -35,8 +35,8 @@ Browse local models. Detect the right runtime. Launch with one key.
 
 ### Runtime Requirements
 
-- **Runtime engine (at least one)**: **llama.cpp** (`llama-server`) for GGUF models, and/or **vLLM** (`vllm`) for safetensors models are installed (see [Runtime configuration and detection](#runtime-configuration-and-detection)).
-- **Models** in default scan locations, or configure custom roots with `LLML_MODEL_PATHS` (see [Model configuration and discovery](#model-configuration-and-discovery)).
+- **Runtime engine (at least one)**: **llama.cpp** (`llama-server`) for GGUF models, and/or **vLLM** (`vllm`) for safetensors models are installed (see [Runtime Engines](#runtime-engines)).
+- **Models** in default scan locations, or configure custom roots with `LLML_MODEL_PATHS` (see [Model Discovery](#model-discovery)).
 
 ### Install
 
@@ -104,11 +104,9 @@ To install a development build from your clone, use `go install ./cmd/llml` from
 
 ```bash
 llml
-# or, if running from the current directory:
-./llml
 ```
 
-Place models under default scan locations (see [Model configuration and discovery](#model-configuration-and-discovery)) or set `LLML_MODEL_PATHS`. Point `LLAMA_CPP_PATH` / `VLLM_PATH` at your install dirs if binaries are not on `PATH`. Select a model in the UI and press `R` to launch.
+`llml` will automatically scan common locations for models and binaries. If your setup is non-standard (e.g., binaries not on `PATH` or models in custom folders), see the [Configuration](#-configuration) section to point the app to the right directories. Select a model in the UI and press `R` to launch.
 
 ## ⌨️ Usage
 
@@ -143,13 +141,7 @@ Each model path can have **multiple named profiles**. Each profile stores:
 
 **`R`** / **ctrl+`R`** use the **active** profile (the highlighted row in the `p` profile list is prefixed with **`(active)`** in the name column). Changes persist automatically. **tab** cycles: profile list → env → extra args. On the profile list: **`a`** add profile, **`c`** clone (duplicate) the highlighted profile, **`d`** delete (not the last), **`r`** rename. **`esc`** closes the panel (and **`n`** cancels a delete confirmation).
 
-Storage is a single JSON file:
-
-| Platform    | Typical path                                                                    |
-| ----------- | ------------------------------------------------------------------------------- |
-| Linux (XDG) | `$XDG_CONFIG_HOME/llml/model-params.json` or `~/.config/llml/model-params.json` |
-| macOS       | `~/Library/Application Support/llml/model-params.json`                          |
-| Windows     | `%AppData%\llml\model-params.json`                                              |
+Profiles are stored in `model-params.json` (see [Storage & Locations](#storage--locations)).
 
 ## ⚙️ Configuration
 
