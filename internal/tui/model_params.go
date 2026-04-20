@@ -7,6 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/flyingnobita/llml/internal/fsutil"
+	"github.com/flyingnobita/llml/internal/userdata"
 )
 
 const modelParamsFileVersion = 2
@@ -169,7 +172,8 @@ func saveModelEntry(modelPath string, ent modelEntry) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(cfgPath, out, 0o644)
+	_ = userdata.BackupFileIfExists(cfgPath)
+	return fsutil.WriteFileAtomic(cfgPath, out, 0o644)
 }
 
 func normalizeModelEntry(ent modelEntry) modelEntry {

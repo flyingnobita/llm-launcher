@@ -11,10 +11,14 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/flyingnobita/llml/internal/fsutil"
 	"github.com/flyingnobita/llml/internal/models"
+	"github.com/flyingnobita/llml/internal/userdata"
 )
 
 // SchemaVersion is the current on-disk format for config.toml.
+// When bumping this, migrate after backing up (WriteFile already snapshots the
+// previous file under backups/ before overwrite).
 const SchemaVersion = 3
 
 // Config is the root document stored at [ConfigPath].
@@ -277,35 +281,8 @@ func DiscoveryConfigForWrite(prev *Config, lastScan time.Time) DiscoveryConfig {
 	}
 }
 
-// atomicWriteFile writes data to path atomically via a temp file + rename,
-// applying perm to the destination. The temp file is cleaned up on any error.
-func atomicWriteFile(path string, data []byte, perm os.FileMode) error {
-	tmp, err := os.CreateTemp(filepath.Dir(path), "llml-config-*.toml")
-	if err != nil {
-		return err
-	}
-	tmpPath := tmp.Name()
-	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		os.Remove(tmpPath)
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		os.Remove(tmpPath)
-		return err
-	}
-	if err := os.Chmod(tmpPath, perm); err != nil {
-		os.Remove(tmpPath)
-		return err
-	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		os.Remove(tmpPath)
-		return err
-	}
-	return nil
-}
-
 // WriteFile writes config.toml atomically (write temp + rename).
+// It best-effort copies the previous file into backups/ before overwrite.
 func WriteFile(c Config) error {
 	path, err := ConfigPath()
 	if err != nil {
@@ -314,10 +291,11 @@ func WriteFile(c Config) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
+	_ = userdata.BackupFileIfExists(path)
 	c.SchemaVersion = SchemaVersion
 	var buf strings.Builder
 	if err := toml.NewEncoder(&buf).Encode(c); err != nil {
 		return err
 	}
-	return atomicWriteFile(path, []byte(buf.String()), 0o644)
+	return fsutil.WriteFileAtomic(path, []byte(buf.String()), 0o644)
 }
