@@ -365,7 +365,7 @@ func (m Model) applyTableAndLogHeights(bodyH, innerW, previewH int) Model {
 		if tableContentH < 1 {
 			tableContentH = 1
 		}
-		logContentH := logPaneH - logFrameV
+		logContentH := logPaneH - logFrameV - mainPaneTitleLines
 		if logContentH < 1 {
 			logContentH = 1
 		}
@@ -394,13 +394,14 @@ func (m Model) applyTableAndLogHeights(bodyH, innerW, previewH int) Model {
 }
 
 // launchPreviewPaneLayoutHeight returns vertical rows consumed by the launch command preview
-// (margin + bordered viewport) when models are listed.
+// (margin + pane title + bordered viewport) when models are listed.
 func (m Model) launchPreviewPaneLayoutHeight() int {
 	if !launchPreviewVisible(m) {
 		return 0
 	}
-	// MarginTop(1) on [styles.launchPreview] plus the fixed-height bordered viewport.
+	// MarginTop(1) on [styles.launchPreview], caption row, then the fixed-height bordered viewport.
 	return m.ui.styles.launchPreview.GetMarginTop() +
+		mainPaneTitleLines +
 		m.ui.styles.launchPreviewViewport.GetVerticalFrameSize() +
 		launchPreviewVisibleLines
 }

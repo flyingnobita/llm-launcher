@@ -46,6 +46,10 @@ const (
 	// command preview (the bordered viewport outer height adds the frame; see syncLaunchPreviewViewport).
 	launchPreviewVisibleLines = 4
 
+	// mainPaneTitleLines is the caption row above each titled pane. Lip Gloss v2 does not
+	// expose border-embedded titles; see launchPreviewPaneView and serverLogPaneView.
+	mainPaneTitleLines = 1
+
 	// shellDisplayArgIndent is the leading spaces for multiline shell display lines after
 	// the first argv line (launch preview and clipboard; split-pane log uses "+ " instead).
 	shellDisplayArgIndent = "  "
@@ -53,6 +57,12 @@ const (
 	// lastRunNoteVisibleDuration is how long the status line below the footer
 	// stays visible before clearing (e.g. copy feedback, scan results).
 	lastRunNoteVisibleDuration = 5 * time.Second
+)
+
+// Main view pane captions (Title Case). Shown above the launch preview and server log only.
+const (
+	MainPaneTitleLaunchCommand = "Launch Command"
+	MainPaneTitleServerOutput  = "Server Output"
 )
 
 // Column-width defaults for the model table.

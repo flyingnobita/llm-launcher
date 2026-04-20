@@ -11,12 +11,38 @@ import (
 	"github.com/flyingnobita/llml/internal/models"
 )
 
+// mainPaneCaptionLine renders a full-width pane caption (lipgloss v2 has no border Title API).
+func (m Model) mainPaneCaptionLine(title string, titleStyle lipgloss.Style) string {
+	iw := m.innerWidth()
+	if iw < minInnerWidth {
+		iw = minInnerWidth
+	}
+	return titleStyle.Width(iw).Render(title)
+}
+
+func (m Model) launchPreviewPaneTitleStyle() lipgloss.Style {
+	st := lipgloss.NewStyle().Bold(true)
+	if m.preview.focused {
+		return st.Foreground(m.ui.theme.SplitPaneBorderFocused)
+	}
+	return st.Foreground(m.ui.theme.Border)
+}
+
+func (m Model) serverLogPaneTitleStyle() lipgloss.Style {
+	st := lipgloss.NewStyle().Bold(true)
+	if m.server.splitFocused {
+		return st.Foreground(m.ui.theme.SplitPaneBorderFocused)
+	}
+	return st.Foreground(m.ui.theme.SplitPaneBorderDim)
+}
+
 // serverLogPaneView renders the bordered server log viewport and, when vertical
 // scrolling is possible, a text-mode scroll track beside it (█/░).
 func (m Model) serverLogPaneView() string {
+	title := m.mainPaneCaptionLine(MainPaneTitleServerOutput, m.serverLogPaneTitleStyle())
 	vp := m.server.viewport.View()
 	if m.server.viewport.TotalLineCount() <= m.server.viewport.VisibleLineCount() {
-		return vp
+		return lipgloss.JoinVertical(lipgloss.Left, title, vp)
 	}
 	trackH := lipgloss.Height(vp)
 	if trackH < 1 {
@@ -24,7 +50,8 @@ func (m Model) serverLogPaneView() string {
 	}
 	col := verticalScrollBarColumn(viewportVerticalScrollPercent(m.server.viewport), trackH)
 	col = m.ui.styles.scrollBarColumn.Render(col)
-	return lipgloss.JoinHorizontal(lipgloss.Top, vp, col)
+	row := lipgloss.JoinHorizontal(lipgloss.Top, vp, col)
+	return lipgloss.JoinVertical(lipgloss.Left, title, row)
 }
 
 // viewportVerticalScrollPercent returns [0,1] for vertical scroll position. The
@@ -134,18 +161,22 @@ func (m Model) launchPreviewPaneView() string {
 	if !launchPreviewVisible(m) {
 		return ""
 	}
+	title := m.mainPaneCaptionLine(MainPaneTitleLaunchCommand, m.launchPreviewPaneTitleStyle())
 	vp := m.preview.viewport.View()
+	var inner string
 	if !launchPreviewScrollable(m) {
-		return m.ui.styles.launchPreview.Render(vp)
+		inner = vp
+	} else {
+		trackH := lipgloss.Height(vp)
+		if trackH < 1 {
+			trackH = 1
+		}
+		col := verticalScrollBarColumn(viewportVerticalScrollPercent(m.preview.viewport), trackH)
+		col = m.ui.styles.scrollBarColumn.Render(col)
+		inner = lipgloss.JoinHorizontal(lipgloss.Top, vp, col)
 	}
-	trackH := lipgloss.Height(vp)
-	if trackH < 1 {
-		trackH = 1
-	}
-	col := verticalScrollBarColumn(viewportVerticalScrollPercent(m.preview.viewport), trackH)
-	col = m.ui.styles.scrollBarColumn.Render(col)
-	row := lipgloss.JoinHorizontal(lipgloss.Top, vp, col)
-	return m.ui.styles.launchPreview.Render(row)
+	stack := lipgloss.JoinVertical(lipgloss.Left, title, inner)
+	return m.ui.styles.launchPreview.Render(stack)
 }
 
 // runtimePanelView renders the runtimes summary (label = value per line) for the runtime
