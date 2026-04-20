@@ -37,6 +37,21 @@ func (m Model) serverLogPaneTitleStyle() lipgloss.Style {
 }
 
 // serverLogPaneView renders the bordered server log viewport and, when vertical
+// withVScrollBar appends a vertical scroll-bar column to content at the given scroll percent.
+// Returns content unchanged when the bar would be empty (trackH < 2).
+func (m Model) withVScrollBar(content string, pct float64) string {
+	trackH := lipgloss.Height(content)
+	if trackH < 1 {
+		trackH = 1
+	}
+	col := verticalScrollBarColumn(pct, trackH)
+	if col == "" {
+		return content
+	}
+	col = m.ui.styles.scrollBarColumn.Render(col)
+	return lipgloss.JoinHorizontal(lipgloss.Top, content, col)
+}
+
 // scrolling is possible, a text-mode scroll track beside it (█/░).
 func (m Model) serverLogPaneView() string {
 	title := m.mainPaneCaptionLine(MainPaneTitleServerOutput, m.serverLogPaneTitleStyle())
@@ -44,13 +59,7 @@ func (m Model) serverLogPaneView() string {
 	if m.server.viewport.TotalLineCount() <= m.server.viewport.VisibleLineCount() {
 		return lipgloss.JoinVertical(lipgloss.Left, title, vp)
 	}
-	trackH := lipgloss.Height(vp)
-	if trackH < 1 {
-		trackH = 1
-	}
-	col := verticalScrollBarColumn(viewportVerticalScrollPercent(m.server.viewport), trackH)
-	col = m.ui.styles.scrollBarColumn.Render(col)
-	row := lipgloss.JoinHorizontal(lipgloss.Top, vp, col)
+	row := m.withVScrollBar(vp, viewportVerticalScrollPercent(m.server.viewport))
 	return lipgloss.JoinVertical(lipgloss.Left, title, row)
 }
 
@@ -148,12 +157,7 @@ func (m Model) modelTablePaneView() string {
 	} else {
 		return vp
 	}
-	col := verticalScrollBarColumn(pct, trackH)
-	if col == "" {
-		return vp
-	}
-	col = m.ui.styles.scrollBarColumn.Render(col)
-	return lipgloss.JoinHorizontal(lipgloss.Top, vp, col)
+	return m.withVScrollBar(vp, pct)
 }
 
 // launchPreviewPaneView renders the bordered, scrollable launch command viewport or "".
@@ -167,13 +171,7 @@ func (m Model) launchPreviewPaneView() string {
 	if !launchPreviewScrollable(m) {
 		inner = vp
 	} else {
-		trackH := lipgloss.Height(vp)
-		if trackH < 1 {
-			trackH = 1
-		}
-		col := verticalScrollBarColumn(viewportVerticalScrollPercent(m.preview.viewport), trackH)
-		col = m.ui.styles.scrollBarColumn.Render(col)
-		inner = lipgloss.JoinHorizontal(lipgloss.Top, vp, col)
+		inner = m.withVScrollBar(vp, viewportVerticalScrollPercent(m.preview.viewport))
 	}
 	stack := lipgloss.JoinVertical(lipgloss.Left, title, inner)
 	return m.ui.styles.launchPreview.Render(stack)

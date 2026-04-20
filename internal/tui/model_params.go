@@ -253,24 +253,6 @@ func mergeEnv(base []string, extra []EnvVar) []string {
 	return out
 }
 
-// collapseArgsForDisplay merges argv token pairs (flag + value) into one TUI line
-// when the value is not another flag. Stored data remains a flat argv slice.
-func collapseArgsForDisplay(tokens []string) []string {
-	if len(tokens) == 0 {
-		return nil
-	}
-	var out []string
-	for i := 0; i < len(tokens); i++ {
-		if strings.HasPrefix(tokens[i], "-") && i+1 < len(tokens) && !strings.HasPrefix(tokens[i+1], "-") {
-			out = append(out, tokens[i]+" "+tokens[i+1])
-			i++
-		} else {
-			out = append(out, tokens[i])
-		}
-	}
-	return out
-}
-
 // flattenArgLines expands panel rows (each may be one token or "--flag value") to argv tokens.
 func flattenArgLines(lines []string) []string {
 	var out []string
