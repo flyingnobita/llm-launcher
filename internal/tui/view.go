@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 	"time"
 
@@ -19,20 +20,21 @@ func (m Model) mainPaneCaptionLine(title string, titleStyle lipgloss.Style) stri
 	return titleStyle.Width(iw).Render(title)
 }
 
-func (m Model) launchPreviewPaneTitleStyle() lipgloss.Style {
+// titledPaneStyle returns a bold title style using focusedColor when focused, else dimColor.
+func titledPaneStyle(focused bool, focusedColor, dimColor color.Color) lipgloss.Style {
 	st := lipgloss.NewStyle().Bold(true)
-	if m.preview.focused {
-		return st.Foreground(m.ui.theme.SplitPaneBorderFocused)
+	if focused {
+		return st.Foreground(focusedColor)
 	}
-	return st.Foreground(m.ui.theme.Border)
+	return st.Foreground(dimColor)
+}
+
+func (m Model) launchPreviewPaneTitleStyle() lipgloss.Style {
+	return titledPaneStyle(m.preview.focused, m.ui.theme.SplitPaneBorderFocused, m.ui.theme.Border)
 }
 
 func (m Model) serverLogPaneTitleStyle() lipgloss.Style {
-	st := lipgloss.NewStyle().Bold(true)
-	if m.server.splitFocused {
-		return st.Foreground(m.ui.theme.SplitPaneBorderFocused)
-	}
-	return st.Foreground(m.ui.theme.SplitPaneBorderDim)
+	return titledPaneStyle(m.server.splitFocused, m.ui.theme.SplitPaneBorderFocused, m.ui.theme.SplitPaneBorderDim)
 }
 
 // serverLogPaneView renders the bordered server log viewport and, when vertical
