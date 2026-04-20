@@ -5,3 +5,6 @@ config:
     indent: 4 # match nested list indent (2 is default)
   MD013: false # line-length: docs often exceed 80 chars
   MD036: false # no-emphasis-as-heading: allow italic for labels
+  # Allow `<br>` in tables and `<a id="…">` for GitHub-compatible section anchors (emoji headings).
+  MD033:
+    allowed_elements: [ "br", "a" ]

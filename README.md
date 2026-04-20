@@ -106,7 +106,7 @@ To install a development build from your clone, use `go install ./cmd/llml` from
 llml
 ```
 
-`llml` will automatically scan common locations for models and binaries. If your setup is non-standard (e.g., binaries not on `PATH` or models in custom folders), see the [Configuration](#-configuration) section to point the app to the right directories. Select a model in the UI and press `R` to launch.
+`llml` will automatically scan common locations for models and binaries. If your setup is non-standard (e.g., binaries not on `PATH` or models in custom folders), see the [Configuration](#configuration) section to point the app to the right directories. Select a model in the UI and press `R` to launch.
 
 ## ⌨️ Usage
 
@@ -142,6 +142,8 @@ Each model path can have **multiple named profiles**. Each profile stores:
 **`R`** / **ctrl+`R`** use the **active** profile (the highlighted row in the `p` profile list is prefixed with **`(active)`** in the name column). Changes persist automatically. **tab** cycles: profile list → env → extra args. On the profile list: **`a`** add profile, **`c`** clone (duplicate) the highlighted profile, **`d`** delete (not the last), **`r`** rename. **`esc`** closes the panel (and **`n`** cancels a delete confirmation).
 
 Profiles are stored in `model-params.json` (see [Storage & Locations](#storage--locations)).
+
+<a id="configuration"></a>
 
 ## ⚙️ Configuration
 
