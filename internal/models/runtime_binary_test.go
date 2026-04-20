@@ -94,3 +94,35 @@ func TestFindVLLMBinary_VLLMPath_dotVenv(t *testing.T) {
 		t.Fatalf("got %q want %q", got, vllm)
 	}
 }
+
+func TestFindVLLMBinary_DarwinVenvVllmMetal(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("macOS-only common path ~/.venv-vllm-metal/bin")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv(EnvVLLMPath, "")
+	t.Setenv(EnvVLLMVenv, "")
+	t.Setenv("PATH", "/nonexistent")
+
+	binDir := filepath.Join(home, ".venv-vllm-metal", "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	vllm := filepath.Join(binDir, "vllm")
+	if err := os.WriteFile(vllm, []byte{}, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	got := findVLLMBinary()
+	if got != vllm {
+		t.Fatalf("got %q want %q", got, vllm)
+	}
+	wantActivate := filepath.Join(binDir, "activate")
+	if err := os.WriteFile(wantActivate, []byte{}, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if act := ResolveVLLMActivateScript(got); act != wantActivate {
+		t.Fatalf("ResolveVLLMActivateScript(%q) = %q want %q", got, act, wantActivate)
+	}
+}

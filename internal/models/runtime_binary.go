@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -62,6 +63,10 @@ func findVLLMBinary() string {
 	)
 	if home, err := os.UserHomeDir(); err == nil {
 		common = append(common, filepath.Join(home, ".local", "bin"))
+		if runtime.GOOS == "darwin" {
+			// Common local layout for Apple Silicon / Metal vLLM installs.
+			common = append(common, filepath.Join(home, ".venv-vllm-metal", "bin"))
+		}
 	}
 	return findBinaryInEnvAndCommonDirs("vllm", "", common)
 }
