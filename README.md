@@ -139,7 +139,7 @@ Place models under default scan locations (see [Model configuration and discover
 Each model path can have **multiple named profiles**. Each profile stores:
 
 - **Environment variables** (`KEY=value` per line).
-- **Extra arguments** appended after `--port` (for vLLM, flags and values are separate argv tokens; the UI may show `--flag value` on one line).
+- **Extra arguments** (`--flag value` per line).
 
 **`R`** / **ctrl+`R`** use the **active** profile (the highlighted row in the `p` profile list is prefixed with **`(active)`** in the name column). Changes persist automatically. **tab** cycles: profile list → env → extra args. On the profile list: **`a`** add profile, **`c`** clone (duplicate) the highlighted profile, **`d`** delete (not the last), **`r`** rename. **`esc`** closes the panel (and **`n`** cancels a delete confirmation).
 
@@ -153,93 +153,87 @@ Storage is a single JSON file:
 
 ## ⚙️ Configuration
 
-Behavior is driven by **environment variables**, optional **`config.toml`**, and the **parameter profiles** JSON file. **Precedence:** env vars override `config.toml`; unset env vars use TOML values, then defaults.
+`llml` follows a strict precedence for settings:  
+**Environment Variables** (highest) → **`config.toml`** → **Default/Auto-detected paths** (lowest).
 
-### Config file (`config.toml`)
+### Storage & Locations
 
-| Platform    | Typical path                                                        |
-| ----------- | ------------------------------------------------------------------- |
-| Linux (XDG) | `$XDG_CONFIG_HOME/llml/config.toml` or `~/.config/llml/config.toml` |
-| macOS       | `~/Library/Application Support/llml/config.toml`                    |
-| Windows     | `%AppData%\llml\config.toml`                                        |
+User data and settings are stored in a dedicated folder. Routine app upgrades **do not** delete these files.
 
-#### Updates vs your data
+| Platform    | Path                                                 |
+| ----------- | ---------------------------------------------------- |
+| Linux (XDG) | `$XDG_CONFIG_HOME/llml/` (usually `~/.config/llml/`) |
+| macOS       | `~/Library/Application Support/llml/`                |
+| Windows     | `%AppData%\llml\`                                    |
 
-Installing or upgrading `llml` (Homebrew, Scoop, `go install`, or dropping a release binary on your `PATH`) **replaces only the executable**. Your data lives under **`{UserConfigDir}/llml/`** (see the tables above), not next to the binary, so routine upgrades do not delete `config.toml` or `model-params.json`.
+**Key Files:**
 
-Before overwriting those files, the app saves a timestamped copy under **`{UserConfigDir}/llml/backups/`** and keeps the newest **10** backups per file. When the built-in version string changes between runs (see `llml -version`), it also snapshots both files once at startup so you have a clear upgrade-boundary copy. The file **`.last-run-version`** in the same directory records the last run version for that behavior.
+- **`config.toml`**: Stores global settings (ports, binary paths) and the model discovery cache.
+- **`model-params.json`**: Stores your [named parameter profiles](#parameter-profiles-p) (args/env) for each model.
+- **`backups/`**: Automatic timestamped snapshots created before the app overwrites configuration.
 
-The file stores **`schema_version`**, **`[runtime]`** (stores `default_` paths and ports used when environment variables are unset), **`[discovery]`** (`extra_model_paths`, `last_scan` timestamp), and **`[[models]]`** (cached rows from the last full scan). Parameter profiles remain in **`model-params.json`** only.
+---
 
-On startup, if the cache is valid, the app skips walking the disk; use **`S`** for a full rescan. **`r`** reloads runtime settings from TOML without rescanning models. Saving the **`c`** runtime panel updates the environment and writes **`[runtime]`** (write failures are ignored).
+### Runtime Engines
 
-### Runtime configuration and detection
+Configure how `llml` finds and launches servers. You can edit these interactively in the UI (**`c`**).
 
-#### Runtime environment variables
+| Feature            | Environment Variable | `config.toml` key (under `[runtime]`) | Default  |
+| :----------------- | :------------------- | :------------------------------------ | :------- |
+| **llama.cpp path** | `LLAMA_CPP_PATH`     | `default_llama_cpp_path`              | _(auto)_ |
+| **llama.cpp port** | `LLAMA_SERVER_PORT`  | `default_llama_server_port`           | `8080`   |
+| **vLLM path**      | `VLLM_PATH`          | `default_vllm_path`                   | _(auto)_ |
+| **vLLM venv**      | `VLLM_VENV`          | `default_vllm_venv`                   | _(auto)_ |
+| **vLLM port**      | `VLLM_SERVER_PORT`   | `default_vllm_server_port`            | `8000`   |
+| **TUI Theme**      | `LLML_THEME`         | -                                     | `auto`   |
 
-| Variable            | Default   | Role                                                                        |
-| ------------------- | --------- | --------------------------------------------------------------------------- |
-| `LLAMA_CPP_PATH`    | _(unset)_ | Directory containing `llama-cli` / `llama-server` (checked before `PATH`)   |
-| `VLLM_PATH`         | _(unset)_ | Directory where `vllm` or `.venv/bin/vllm` may live                         |
-| `VLLM_VENV`         | _(unset)_ | Python venv root; on Unix, **`R`** may `source bin/activate` before `vllm`  |
-| `LLAMA_SERVER_PORT` | `8080`    | Port for `llama-server` and `/health` probe                                 |
-| `VLLM_SERVER_PORT`  | `8000`    | Port for `vllm serve`                                                       |
-| `LLML_THEME`        | `auto`    | Initial TUI palette; **`t`** cycles `dark` → `light` → `auto` while running |
+**Detection Logic:**
 
-Set these in your shell, or under `[env]` in `mise.local.toml` (gitignored) for local development with mise.
+1. Explicitly configured paths (Env/TOML).
+2. Common system directories (e.g., `/usr/local/bin`, `/opt/homebrew/bin`, `~/.local/bin`).
+3. Binary names available on your system `PATH`.
+4. (llama.cpp only) Probing for an already-running server on the configured port.
+5. (vLLM only) Common venv locations (e.g., `~/.venv-vllm-metal/bin` on macOS).
 
-#### Runtime detection order
+---
 
-On launch (and after **`r`**), the app resolves **llama.cpp** and **vLLM** binaries. Model discovery runs on first start, after **`S`**, or when the cache is missing or stale; **`r`** does not rescan models.
+### Model Discovery
 
-**llama.cpp (`llama-cli` / `llama-server`)**
+`llml` scans several common directories (e.g., `~/models`, `~/.cache/llama.cpp`, `~/.cache/lm-studio/models`) by default.
 
-1. **`LLAMA_CPP_PATH`** if set: `{LLAMA_CPP_PATH}/<binary>` must exist.
-2. Common locations: `/usr/local/bin`, `/opt/homebrew/bin`, `/opt/llama.cpp/build/bin`, `~/.local/bin`.
-3. **`PATH`** via `exec.LookPath`.
+#### Custom Search Paths
 
-If both binaries are still missing, the app may probe a **running** llama.cpp server: HTTP `GET` `http://127.0.0.1:<LLAMA_SERVER_PORT>/health` (2s timeout, success = HTTP 200).
+Add extra directories to scan via the UI (**`m`**), `config.toml` (`discovery.extra_model_paths`), or environment variables:
 
-**vLLM (`vllm`)**
+| Environment Variable    | Role                                                                                                            |
+| :---------------------- | :-------------------------------------------------------------------------------------------------------------- |
+| `LLML_MODEL_PATHS`      | Comma-separated list of extra roots to scan. <br>Example: `export LLML_MODEL_PATHS="/data/models,/opt/weights"` |
+| `HUGGINGFACE_HUB_CACHE` | Specific root for Hugging Face hub cache (overrides `HF_HOME/hub`).                                             |
+| `HF_HOME`               | Root for HF home (cache resolves to `$HF_HOME/hub`).                                                            |
 
-1. **`VLLM_PATH`**: `{VLLM_PATH}/vllm` or `{VLLM_PATH}/.venv/bin/vllm`.
-2. **`VLLM_VENV`**: `{VLLM_VENV}/bin/vllm` if present.
-3. Common directories: `/usr/local/bin`, `/opt/homebrew/bin`, `~/.local/bin`, and on **macOS** also `~/.venv-vllm-metal/bin`, then **`PATH`**.
+Example `config.toml` entry:
 
-On **Linux/macOS**, if vLLM lives in a venv, **`R`** may source `activate` before `vllm serve` (next to the resolved binary, e.g. `~/.venv-vllm-metal/bin/activate` with `~/.venv-vllm-metal/bin/vllm` on macOS, or via `VLLM_VENV` / `.venv` heuristics). On **Windows**, use an activated shell or put `vllm` on `PATH`.
-
-### Model configuration and discovery
-
-#### Model environment variables
-
-| Variable                | Default   | Role                                                                                                             |
-| ----------------------- | --------- | ---------------------------------------------------------------------------------------------------------------- |
-| `LLML_MODEL_PATHS`      | _(unset)_ | Extra model search roots (comma-separated); merged with `discovery.extra_model_paths` in `config.toml` for scans |
-| `HUGGINGFACE_HUB_CACHE` | _(unset)_ | Hugging Face hub cache root (overrides `HF_HOME/hub`)                                                            |
-| `HF_HOME`               | _(unset)_ | Hugging Face home; hub cache resolves to `HF_HOME/hub`                                                           |
-
-Default scan roots include `~/models`, `~/.cache/llama.cpp`, Hugging Face hub cache paths, and `~/.cache/lm-studio/models` (only existing directories are used).
-
-Hugging Face cache resolution precedence is:
-
-1. `HUGGINGFACE_HUB_CACHE`
-2. `HF_HOME/hub`
-3. `~/.cache/huggingface/hub`
-
-Scan root merge order is defaults, then paths from **`config.toml`** (`discovery.extra_model_paths`), then **`LLML_MODEL_PATHS`**. This affects where the app looks, but it does not make one root "win" over another; discovered rows are deduplicated and sorted by path.
-
-Add extra roots:
-
-```bash
-export LLML_MODEL_PATHS="/data/models,/opt/weights"
+```toml
+[discovery]
+extra_model_paths = ["/data/models", "/opt/weights"]
 ```
 
-#### Model discovery rules
+#### Discovery Rules
 
-- **GGUF**: files ending in `.gguf` under the scan roots.
-- **Safetensors**: a directory containing **`config.json`** and at least one **`*.safetensors`** file (Hugging Face-style checkpoint).
+The app recognizes the following model types:
 
-The table shows a decoded repo id from `models--*` hub folders when possible; otherwise folder names and paths are shown with `~/` shortened and truncation when the terminal is narrow.
+- **GGUF**: Files ending in `.gguf`.
+- **Safetensors**: Directories containing `config.json` and `*.safetensors` files (Hugging Face style).
+
+---
+
+### Data Integrity & Backups
+
+To protect your settings and cache, `llml` maintains a history of your configuration:
+
+- **Atomic Writes**: Files are written to a temporary location before being moved, preventing corruption.
+- **Automatic Backups**: The newest **10** versions of each file are kept in the `backups/` directory.
+- **Upgrade Snapshots**: When the `llml` version changes, a snapshot of both `config.toml` and `model-params.json` is created automatically so you can roll back if needed. The file **`.last-run-version`** in the same directory records the last run version for that behavior.
 
 ## 💻 Development
 
