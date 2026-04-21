@@ -16,32 +16,42 @@ func TestRuntimePanelLines(t *testing.T) {
 	t.Setenv(models.EnvVLLMVenv, "")
 	t.Setenv(models.EnvLlamaCppPath, "")
 	t.Setenv(models.EnvVLLMPath, "")
+	t.Setenv(models.EnvOllamaHost, "")
+	t.Setenv(models.EnvOllamaPath, "")
 
 	r := models.RuntimeInfo{
 		LlamaServerPath: "/home/u/llama.cpp/bin/llama-server",
 		VLLMPath:        "/home/u/.local/bin/vllm",
+		OllamaPath:      "/home/u/.local/bin/ollama",
+		OllamaHost:      "127.0.0.1:11434",
 		ServerRunning:   false,
 		ProbePort:       8080,
 	}
 	lines := RuntimePanelLines(80, r)
-	if len(lines) != 5 {
+	if len(lines) != 7 {
 		t.Fatalf("got %d lines", len(lines))
 	}
-	// Alphabetical: llama-server path, llama-server port, vllm path, vllm port, vllm venv path
+	// Alphabetical: llama-server path, llama-server port, ollama host, ollama path, vllm path, vllm port, vllm venv path
 	if !strings.Contains(lines[0], runtimePanelLabelLlamaServerPath) || !strings.Contains(lines[0], "llama-server") {
 		t.Errorf("llama-server path line: %q", lines[0])
 	}
 	if !strings.Contains(lines[1], runtimePanelLabelLlamaServerPort) || !strings.Contains(lines[1], "8080") {
 		t.Errorf("llama-server port line: %q", lines[1])
 	}
-	if !strings.Contains(lines[2], runtimePanelLabelVLLMPath) || !strings.Contains(lines[2], "vllm") {
-		t.Errorf("vllm path line: %q", lines[2])
+	if !strings.Contains(lines[2], runtimePanelLabelOllamaHost) || !strings.Contains(lines[2], "127.0.0.1:11434") {
+		t.Errorf("ollama host line: %q", lines[2])
 	}
-	if !strings.Contains(lines[3], runtimePanelLabelVLLMPort) || !strings.Contains(lines[3], "8000") {
-		t.Errorf("vllm port line: %q", lines[3])
+	if !strings.Contains(lines[3], runtimePanelLabelOllamaPath) || !strings.Contains(lines[3], "ollama") {
+		t.Errorf("ollama path line: %q", lines[3])
 	}
-	if !strings.Contains(lines[4], runtimePanelLabelVLLMVenv) || !strings.Contains(lines[4], "—") {
-		t.Errorf("vllm venv path line: %q", lines[4])
+	if !strings.Contains(lines[4], runtimePanelLabelVLLMPath) || !strings.Contains(lines[4], "vllm") {
+		t.Errorf("vllm path line: %q", lines[4])
+	}
+	if !strings.Contains(lines[5], runtimePanelLabelVLLMPort) || !strings.Contains(lines[5], "8000") {
+		t.Errorf("vllm port line: %q", lines[5])
+	}
+	if !strings.Contains(lines[6], runtimePanelLabelVLLMVenv) || !strings.Contains(lines[6], "—") {
+		t.Errorf("vllm venv path line: %q", lines[6])
 	}
 }
 

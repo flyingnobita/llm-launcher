@@ -81,3 +81,12 @@ type themeToastClearMsg struct{}
 
 // lastRunNoteClearMsg clears the status line below the footer.
 type lastRunNoteClearMsg struct{}
+
+type ollamaLaunchDoneMsg struct {
+	note string
+	err  error
+}
+
+type ollamaLaunchStartedMsg struct {
+	note string
+}

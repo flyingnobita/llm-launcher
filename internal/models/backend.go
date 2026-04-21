@@ -14,11 +14,15 @@ const (
 	// BackendVLLM is a Hugging Face-style model directory (config.json + *.safetensors)
 	// launched with vllm serve.
 	BackendVLLM
+	// BackendOllama is a daemon-managed Ollama model identified by model[:tag].
+	BackendOllama
 )
 
-// String returns the canonical lowercase name for the backend ("llama" or "vllm").
+// String returns the canonical lowercase name for the backend.
 func (b ModelBackend) String() string {
 	switch b {
+	case BackendOllama:
+		return "ollama"
 	case BackendVLLM:
 		return "vllm"
 	default:
@@ -33,6 +37,8 @@ func ParseBackend(s string) (ModelBackend, error) {
 		return BackendLlama, nil
 	case "vllm":
 		return BackendVLLM, nil
+	case "ollama":
+		return BackendOllama, nil
 	default:
 		return 0, fmt.Errorf("unknown backend %q", s)
 	}

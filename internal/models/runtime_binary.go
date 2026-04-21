@@ -88,6 +88,22 @@ func findLlamaBinary(name string) string {
 	return findBinaryInEnvAndCommonDirs(name, envDir, common)
 }
 
+func findOllamaBinary() string {
+	var envDir string
+	if d := os.Getenv(EnvOllamaPath); d != "" {
+		envDir = filepath.Clean(d)
+	}
+	var common []string
+	common = append(common,
+		"/usr/local/bin",
+		"/opt/homebrew/bin",
+	)
+	if home, err := os.UserHomeDir(); err == nil {
+		common = append(common, filepath.Join(home, ".local", "bin"))
+	}
+	return findBinaryInEnvAndCommonDirs("ollama", envDir, common)
+}
+
 // probeLlamaServerHealth GETs /health on 127.0.0.1 (avoids localhost IPv6/IPv4 ambiguity).
 func probeLlamaServerHealth(port int) bool {
 	url := fmt.Sprintf("http://127.0.0.1:%d/health", port)

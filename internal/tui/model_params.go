@@ -125,7 +125,7 @@ func loadModelEntry(modelPath string) (modelEntry, error) {
 	if err != nil {
 		return modelEntry{}, err
 	}
-	key := filepath.Clean(modelPath)
+	key := modelParamsKey(modelPath)
 	f, err := readParamsFile(cfgPath)
 	if err != nil {
 		return modelEntry{}, err
@@ -146,7 +146,7 @@ func saveModelEntry(modelPath string, ent modelEntry) error {
 	if err != nil {
 		return err
 	}
-	key := filepath.Clean(modelPath)
+	key := modelParamsKey(modelPath)
 	if err := os.MkdirAll(filepath.Dir(cfgPath), 0o755); err != nil {
 		return err
 	}
@@ -176,6 +176,20 @@ func saveModelEntry(modelPath string, ent modelEntry) error {
 	return fsutil.WriteFileAtomic(cfgPath, out, 0o644)
 }
 
+func modelParamsKey(modelPath string) string {
+	key := strings.TrimSpace(modelPath)
+	if key == "" {
+		return ""
+	}
+	if strings.HasPrefix(key, "ollama://") {
+		return key
+	}
+	if strings.Contains(key, "://") {
+		return key
+	}
+	return filepath.Clean(key)
+}
+
 func normalizeModelEntry(ent modelEntry) modelEntry {
 	var profiles []ParameterProfile
 	for i := range ent.Profiles {
@@ -202,7 +216,7 @@ func modelParamsForLaunchPreview(m Model) (ModelParams, bool) {
 		return ModelParams{}, false
 	}
 	if m.params.open {
-		if filepath.Clean(m.params.modelPath) == filepath.Clean(sel) {
+		if modelParamsKey(m.params.modelPath) == modelParamsKey(sel) {
 			return normalizeModelParams(ModelParams{
 				Env:  append([]EnvVar(nil), m.params.env...),
 				Args: flattenArgLines(m.params.args),

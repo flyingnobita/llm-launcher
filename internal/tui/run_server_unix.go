@@ -15,6 +15,10 @@ func applySplitCmdSysProcAttr(cmd *exec.Cmd) {
 	cmd.SysProcAttr.Setpgid = true
 }
 
+func applyBackgroundCmdSysProcAttr(cmd *exec.Cmd) {
+	applySplitCmdSysProcAttr(cmd)
+}
+
 func interruptServerProcess(cmd *exec.Cmd) error {
 	if cmd == nil || cmd.Process == nil {
 		return nil

@@ -12,6 +12,29 @@ import (
 
 const themeToastVisibleDuration = 2 * time.Second
 
+func mergeCachedOllamaRows(cfg config.Config, files []models.ModelFile, rt models.RuntimeInfo) []models.ModelFile {
+	if rt.OllamaRunning {
+		return files
+	}
+	haveLive := false
+	for _, f := range files {
+		if f.Backend == models.BackendOllama {
+			haveLive = true
+			break
+		}
+	}
+	if haveLive {
+		return files
+	}
+	cached := config.ModelFilesFromEntries(cfg.Models)
+	for _, f := range cached {
+		if f.Backend == models.BackendOllama {
+			files = append(files, f)
+		}
+	}
+	return files
+}
+
 // applyAndFullScanCmd applies [runtime] from config.toml when present, then runs a full discovery and writes config.toml.
 func applyAndFullScanCmd(explicitPaths ...string) tea.Cmd {
 	return func() tea.Msg {
@@ -30,6 +53,9 @@ func applyAndFullScanCmd(explicitPaths ...string) tea.Cmd {
 		files, derr := models.Discover(opts)
 		if derr != nil {
 			return modelsErrMsg{err: derr}
+		}
+		if err == nil {
+			files = mergeCachedOllamaRows(cfg, files, rt)
 		}
 		now := time.Now()
 		disc := config.DiscoveryConfigFromInputs(fromFile, now)
@@ -51,9 +77,13 @@ func rescanModelsCmd(explicitPaths ...string) tea.Cmd {
 			fromFile = explicitPaths
 		}
 		opts.ExtraRoots = config.MergeExtraRoots(fromFile, config.ExtraModelPathsFromEnv())
+		rt := models.DiscoverRuntime()
 		files, derr := models.Discover(opts)
 		if derr != nil {
 			return modelsErrMsg{err: derr}
+		}
+		if err == nil {
+			files = mergeCachedOllamaRows(cfg, files, rt)
 		}
 		now := time.Now()
 		disc := config.DiscoveryConfigFromInputs(fromFile, now)

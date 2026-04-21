@@ -133,7 +133,7 @@ func (m Model) openParamPanel() (Model, tea.Cmd) {
 	m.params.open = true
 	m = m.saveMainPaneFocusForModal()
 	m.params.confirmDelete = paramConfirmNone
-	m.params.modelPath = filepath.Clean(p)
+	m.params.modelPath = modelParamsKey(p)
 	m.params.modelDisplayName = modelDisplayNameForPath(m)
 	m = m.withLastRunCleared()
 	m.params.editKind = paramEditNone
@@ -183,20 +183,18 @@ func (m Model) closeParamPanel() Model {
 	return m.restoreMainPaneFocusAfterModal()
 }
 
-// modelDisplayNameForPath returns the File Name column value for the row whose path is selected, or a basename fallback.
+// modelDisplayNameForPath returns the File Name column value for the selected row, or an identity fallback.
 func modelDisplayNameForPath(m Model) string {
-	p := m.SelectedPath()
-	if p == "" {
+	f, ok := m.SelectedModelFile()
+	if !ok {
 		return ""
 	}
-	p = filepath.Clean(p)
-	for i := range m.table.files {
-		if filepath.Clean(m.table.files[i].Path) == p {
-			if n := strings.TrimSpace(m.table.files[i].Name); n != "" {
-				return n
-			}
-			break
-		}
+	if n := strings.TrimSpace(f.Name); n != "" {
+		return n
+	}
+	p := f.Identity()
+	if strings.HasPrefix(p, "ollama://") || strings.Contains(p, ":") && !strings.HasPrefix(p, "/") {
+		return p
 	}
 	return filepath.Base(p)
 }

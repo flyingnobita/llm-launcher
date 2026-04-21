@@ -544,11 +544,17 @@ func (m Model) runtimeConfigModalBlock() string {
 					append([]string{""}, m.runtimeFieldRow(runtimeFieldVLLMPort, runtimeConfigLabelVLLMPort)...)...)...)...)...)
 	vllmBlock := lipgloss.JoinVertical(lipgloss.Left, vllmRows...)
 
+	ollamaRows := append([]string{header(runtimeConfigHeaderOllama), ""},
+		append(m.runtimeFieldRow(runtimeFieldOllamaPath, runtimeConfigLabelOllamaPath),
+			append([]string{""}, m.runtimeFieldRow(runtimeFieldOllamaHost, runtimeConfigLabelOllamaHost)...)...)...)
+	ollamaBlock := lipgloss.JoinVertical(lipgloss.Left, ollamaRows...)
+
 	var inputBlock string
 	if cw >= 80 {
-		inputBlock = lipgloss.JoinHorizontal(lipgloss.Top, llamaBlock, m.ui.styles.body.PaddingLeft(4).Render(vllmBlock))
+		leftBlock := lipgloss.JoinVertical(lipgloss.Left, llamaBlock, "", ollamaBlock)
+		inputBlock = lipgloss.JoinHorizontal(lipgloss.Top, leftBlock, m.ui.styles.body.PaddingLeft(4).Render(vllmBlock))
 	} else {
-		inputBlock = lipgloss.JoinVertical(lipgloss.Left, llamaBlock, "", vllmBlock)
+		inputBlock = lipgloss.JoinVertical(lipgloss.Left, llamaBlock, "", ollamaBlock, "", vllmBlock)
 	}
 
 	rows := []string{

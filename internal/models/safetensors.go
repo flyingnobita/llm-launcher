@@ -76,7 +76,9 @@ func tryVLLMModelDir(dir string) (ModelFile, bool) {
 	}
 	return ModelFile{
 		Backend:    BackendVLLM,
+		ID:         filepath.Clean(dir),
 		Path:       filepath.Clean(dir),
+		Location:   filepath.Clean(dir),
 		Name:       filepath.Base(filepath.Clean(dir)),
 		Size:       totalSize,
 		ModTime:    latest,

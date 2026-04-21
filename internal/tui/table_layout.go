@@ -57,10 +57,10 @@ func tableColumns(totalWidth int, files []models.ModelFile, homeDir string, sort
 		if w := runewidth.StringWidth(f.Name); w > longestName {
 			longestName = w
 		}
-		if w := runewidth.StringWidth(models.InferModelID(f.Path)); w > longestID {
+		if w := runewidth.StringWidth(modelIDForRow(f)); w > longestID {
 			longestID = w
 		}
-		if w := runewidth.StringWidth(FormatModelFolderDisplay(f.Path, homeDir)); w > longestPath {
+		if w := runewidth.StringWidth(formatLocationForRow(f, homeDir)); w > longestPath {
 			longestPath = w
 		}
 	}
@@ -118,10 +118,10 @@ func buildTableRows(files []models.ModelFile, cols []btable.Column, homeDir stri
 	rows := make([]btable.Row, len(files))
 	for i, f := range files {
 		rows[i] = btable.Row{
-			TruncateRunes(models.InferModelID(f.Path), cols[0].Width-1),
+			TruncateRunes(modelIDForRow(f), cols[0].Width-1),
 			TruncateRunes(models.FormatRuntimeLabel(f.Backend), cols[1].Width-1),
 			models.FormatSize(f.Size),
-			TruncateRunes(FormatModelFolderDisplay(f.Path, homeDir), cols[3].Width-1),
+			TruncateRunes(formatLocationForRow(f, homeDir), cols[3].Width-1),
 			TruncateRunes(f.Name, cols[4].Width-1),
 			FormatModTime(f.ModTime),
 		}

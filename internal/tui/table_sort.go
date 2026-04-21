@@ -53,11 +53,11 @@ func compareModelFilesCol(a, b models.ModelFile, col tableSortCol) int {
 	case tableSortColFileName:
 		return strings.Compare(a.Name, b.Name)
 	case tableSortColID:
-		return strings.Compare(models.InferModelID(a.Path), models.InferModelID(b.Path))
+		return strings.Compare(modelIDForRow(a), modelIDForRow(b))
 	case tableSortColRuntime:
 		return int(a.Backend) - int(b.Backend)
 	case tableSortColPath:
-		return strings.Compare(a.Path, b.Path)
+		return strings.Compare(a.DisplayLocation(), b.DisplayLocation())
 	case tableSortColSize:
 		if a.Size < b.Size {
 			return -1
@@ -75,7 +75,7 @@ func compareModelFilesCol(a, b models.ModelFile, col tableSortCol) int {
 		}
 		return 0
 	default:
-		return strings.Compare(a.Path, b.Path)
+		return strings.Compare(a.DisplayLocation(), b.DisplayLocation())
 	}
 }
 
@@ -90,7 +90,7 @@ func (m Model) applyTableSort(selPath string) Model {
 	sortModelFiles(m.table.files, m.table.sortCol, m.table.sortDesc)
 	if selPath != "" {
 		for i := range m.table.files {
-			if m.table.files[i].Path == selPath {
+			if m.table.files[i].Identity() == selPath {
 				m.table.tbl.SetCursor(i)
 				break
 			}

@@ -19,6 +19,10 @@ const (
 	// EnvVLLMVenv is an optional Python venv root (directory containing bin/activate on Unix).
 	// When set (or when $VLLM_PATH/.venv or dirname(vllm)/.venv exists), R sources activate before vllm serve.
 	EnvVLLMVenv = "VLLM_VENV"
+	// EnvOllamaPath is an optional directory or absolute binary path for the ollama executable.
+	EnvOllamaPath = "OLLAMA_PATH"
+	// EnvOllamaHost is the Ollama API bind/listen host (host:port by default).
+	EnvOllamaHost = "OLLAMA_HOST"
 
 	// EnvModelPaths is the env var for extra model search roots (comma-separated).
 	EnvModelPaths = "LLML_MODEL_PATHS"
@@ -37,13 +41,16 @@ type RuntimeInfo struct {
 	LlamaCLIPath    string
 	LlamaServerPath string
 	VLLMPath        string
+	OllamaPath      string
+	OllamaHost      string
+	OllamaRunning   bool
 	ServerRunning   bool
 	ProbePort       int // port used when ServerRunning is true (0 if not probed)
 }
 
 // Available is true if either binary was found, vLLM was found, or a llama-server responded on the health probe.
 func (r RuntimeInfo) Available() bool {
-	return r.LlamaCLIPath != "" || r.LlamaServerPath != "" || r.VLLMPath != "" || r.ServerRunning
+	return r.LlamaCLIPath != "" || r.LlamaServerPath != "" || r.VLLMPath != "" || r.OllamaPath != "" || r.OllamaRunning || r.ServerRunning
 }
 
 func formatBinLabel(abs string) string {
@@ -72,6 +79,19 @@ func (r RuntimeInfo) Summary() string {
 	if r.VLLMPath != "" {
 		v = "vllm: ✓"
 	}
+	o := "ollama: —"
+	showOllama := r.OllamaPath != "" || r.OllamaRunning
+	switch {
+	case r.OllamaPath != "" && r.OllamaRunning:
+		o = "ollama: ✓ running"
+	case r.OllamaPath != "":
+		o = "ollama: ✓ stopped"
+	case r.OllamaRunning:
+		o = "ollama: running"
+	}
+	if showOllama {
+		return base + " · " + v + " · " + o
+	}
 	return base + " · " + v
 }
 
@@ -86,12 +106,17 @@ func DiscoverRuntime() RuntimeInfo {
 		LlamaCLIPath:    cli,
 		LlamaServerPath: srv,
 		VLLMPath:        findVLLMBinary(),
+		OllamaPath:      findOllamaBinary(),
+		OllamaHost:      OllamaHost(),
 		ProbePort:       port,
 	}
 	if cli == "" && srv == "" {
 		if probeLlamaServerHealth(port) {
 			info.ServerRunning = true
 		}
+	}
+	if ProbeOllama() {
+		info.OllamaRunning = true
 	}
 	return info
 }
@@ -131,4 +156,9 @@ func ResolveLlamaServerPath(r RuntimeInfo) string {
 // ResolveVLLMPath returns the detected vllm binary path, or the first match on PATH.
 func ResolveVLLMPath(r RuntimeInfo) string {
 	return resolvePath(r.VLLMPath, "vllm")
+}
+
+// ResolveOllamaPath returns the detected ollama binary path, or the first match on PATH.
+func ResolveOllamaPath(r RuntimeInfo) string {
+	return resolvePath(r.OllamaPath, "ollama")
 }

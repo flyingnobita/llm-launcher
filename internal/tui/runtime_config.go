@@ -20,6 +20,8 @@ const (
 	runtimeFieldVLLMPath
 	runtimeFieldVLLMVenv
 	runtimeFieldVLLMPort
+	runtimeFieldOllamaPath
+	runtimeFieldOllamaHost
 	runtimeFieldCount
 )
 
@@ -139,6 +141,8 @@ func (m Model) openRuntimeConfigFocused(focus runtimeField) (Model, tea.Cmd) {
 	m.rc.inputs[runtimeFieldVLLMVenv].SetValue(os.Getenv(models.EnvVLLMVenv))
 	m.rc.inputs[runtimeFieldLlamaPort].SetValue(prefillPort(models.EnvLlamaServerPort, models.ListenPort()))
 	m.rc.inputs[runtimeFieldVLLMPort].SetValue(prefillPort(models.EnvVLLMServerPort, models.VLLMPort()))
+	m.rc.inputs[runtimeFieldOllamaPath].SetValue(os.Getenv(models.EnvOllamaPath))
+	m.rc.inputs[runtimeFieldOllamaHost].SetValue(models.OllamaHost())
 	return m.focusRuntimeField(focus)
 }
 
@@ -146,17 +150,20 @@ func (m Model) openRuntimeConfigFocused(focus runtimeField) (Model, tea.Cmd) {
 // backend binary, but [models.ResolveLlamaServerPath] or [models.ResolveVLLMPath] is empty.
 // GGUF rows require llama-server; vLLM rows require vllm. Clears the footer line when neither applies.
 func (m Model) maybeSetMissingRuntimeFooterNote() (Model, tea.Cmd) {
-	var wantLlama, wantVLLM bool
+	var wantLlama, wantVLLM, wantOllama bool
 	for _, f := range m.table.files {
 		switch f.Backend {
 		case models.BackendLlama:
 			wantLlama = true
 		case models.BackendVLLM:
 			wantVLLM = true
+		case models.BackendOllama:
+			wantOllama = true
 		}
 	}
 	haveLlama := models.ResolveLlamaServerPath(m.runtime) != ""
 	haveVLLM := models.ResolveVLLMPath(m.runtime) != ""
+	haveOllama := models.ResolveOllamaPath(m.runtime) != "" || m.runtime.OllamaRunning
 
 	var msgs []string
 	if wantLlama && !haveLlama {
@@ -164,6 +171,9 @@ func (m Model) maybeSetMissingRuntimeFooterNote() (Model, tea.Cmd) {
 	}
 	if wantVLLM && !haveVLLM {
 		msgs = append(msgs, MissingVLLMFooterNote)
+	}
+	if wantOllama && !haveOllama {
+		msgs = append(msgs, MissingOllamaFooterNote)
 	}
 	if len(msgs) > 0 {
 		m = m.withLastRunError(strings.Join(msgs, "\n"))
@@ -216,6 +226,12 @@ func (m Model) commitRuntimeConfig() (Model, tea.Cmd) {
 	applyPathEnv(models.EnvLlamaCppPath, m.rc.inputs[runtimeFieldLlamaCppPath].Value())
 	applyPathEnv(models.EnvVLLMPath, m.rc.inputs[runtimeFieldVLLMPath].Value())
 	applyPathEnv(models.EnvVLLMVenv, m.rc.inputs[runtimeFieldVLLMVenv].Value())
+	applyPathEnv(models.EnvOllamaPath, m.rc.inputs[runtimeFieldOllamaPath].Value())
+	if host := strings.TrimSpace(m.rc.inputs[runtimeFieldOllamaHost].Value()); host == "" {
+		os.Unsetenv(models.EnvOllamaHost)
+	} else {
+		os.Setenv(models.EnvOllamaHost, host)
+	}
 	if err := applyListenPortEnv(m.rc.inputs[runtimeFieldLlamaPort].Value()); err != nil {
 		m = m.withLastRunError(err.Error())
 		return m, clearLastRunNoteAfterCmd()

@@ -25,9 +25,11 @@ func FormatSize(b int64) string {
 	return fmt.Sprintf("%.1f %s", div, units[idx])
 }
 
-// FormatRuntimeLabel returns a short table label for the model backend ("llama.cpp", "vllm").
+// FormatRuntimeLabel returns a short table label for the model backend.
 func FormatRuntimeLabel(b ModelBackend) string {
 	switch b {
+	case BackendOllama:
+		return "ollama"
 	case BackendVLLM:
 		return "vllm"
 	default:

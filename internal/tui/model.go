@@ -166,10 +166,12 @@ func newLaunchPreviewViewport(st styles) viewport.Model {
 func newRuntimeConfigInputs() [runtimeFieldCount]textinput.Model {
 	return [runtimeFieldCount]textinput.Model{
 		newPathTextInput(),
+		newPortTextInput(),
 		newPathTextInput(),
 		newPathTextInput(),
 		newPortTextInput(),
-		newPortTextInput(),
+		newPathTextInput(),
+		newPathTextInput(),
 	}
 }
 
@@ -199,22 +201,34 @@ func (m Model) Init() tea.Cmd {
 	return startupCmd()
 }
 
-// SelectedModel returns the filesystem path and backend for the highlighted row.
-func (m Model) SelectedModel() (path string, backend models.ModelBackend) {
+// SelectedModelFile returns the highlighted model row.
+func (m Model) SelectedModelFile() (models.ModelFile, bool) {
 	if len(m.table.tbl.Rows()) == 0 || m.table.tbl.Cursor() < 0 {
-		return "", models.BackendLlama
+		return models.ModelFile{}, false
 	}
 	i := m.table.tbl.Cursor()
 	if i < 0 || i >= len(m.table.files) {
-		return "", models.BackendLlama
+		return models.ModelFile{}, false
 	}
-	return m.table.files[i].Path, m.table.files[i].Backend
+	return m.table.files[i], true
 }
 
-// SelectedPath returns the full path of the highlighted row, or empty if none.
+// SelectedModel returns the backend-specific launch target and backend for the highlighted row.
+func (m Model) SelectedModel() (target string, backend models.ModelBackend) {
+	f, ok := m.SelectedModelFile()
+	if !ok {
+		return "", models.BackendLlama
+	}
+	return f.LaunchTarget(), f.Backend
+}
+
+// SelectedPath returns the stable identity of the highlighted row, or empty if none.
 func (m Model) SelectedPath() string {
-	p, _ := m.SelectedModel()
-	return p
+	f, ok := m.SelectedModelFile()
+	if !ok {
+		return ""
+	}
+	return f.Identity()
 }
 
 // innerWidth returns the usable inner body width for rendering. It falls back

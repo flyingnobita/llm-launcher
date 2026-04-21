@@ -14,6 +14,8 @@ import (
 const (
 	runtimePanelLabelLlamaServerPath = "llama-server path"
 	runtimePanelLabelLlamaServerPort = "llama-server port"
+	runtimePanelLabelOllamaHost      = "ollama host"
+	runtimePanelLabelOllamaPath      = "ollama path"
 	runtimePanelLabelVLLMPath        = "vllm path"
 	runtimePanelLabelVLLMPort        = "vllm port"
 	runtimePanelLabelVLLMVenv        = "vllm venv path"
@@ -85,6 +87,15 @@ func vllmVenvPanelDisplay(r models.RuntimeInfo) string {
 	return "—"
 }
 
+func ollamaPathPanelDisplay(r models.RuntimeInfo) string {
+	p := models.ResolveOllamaPath(r)
+	if p == "" {
+		return "—"
+	}
+	home, _ := os.UserHomeDir()
+	return FormatPathDisplay(p, home)
+}
+
 // RuntimePanelLines returns lines for the TUI footer: each row is a label (left) and its current
 // value (right), sorted alphabetically by label. Binary paths use [models.ResolveLlamaServerPath]
 // and [models.ResolveVLLMPath]; port rows use the env when set, otherwise the effective default
@@ -109,6 +120,8 @@ func RuntimePanelLines(maxWidth int, r models.RuntimeInfo) []string {
 	}{
 		{runtimePanelLabelLlamaServerPath, llamaServerPathPanelDisplay(r)},
 		{runtimePanelLabelLlamaServerPort, portEnvDisplay(models.EnvLlamaServerPort, models.ListenPort())},
+		{runtimePanelLabelOllamaHost, models.OllamaHost()},
+		{runtimePanelLabelOllamaPath, ollamaPathPanelDisplay(r)},
 		{runtimePanelLabelVLLMPath, vllmPathPanelDisplay(r)},
 		{runtimePanelLabelVLLMPort, portEnvDisplay(models.EnvVLLMServerPort, models.VLLMPort())},
 		{runtimePanelLabelVLLMVenv, vllmVenvPanelDisplay(r)},

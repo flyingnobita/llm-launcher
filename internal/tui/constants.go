@@ -136,6 +136,7 @@ const (
 	// Missing-runtime footer lines after model scan (see maybeSetMissingRuntimeFooterNote).
 	MissingLlamaServerFooterNote = "llama-server not found - press " + FooterKeyConfigPort + " to set path manually"
 	MissingVLLMFooterNote        = "vllm not found - press " + FooterKeyConfigPort + " to set path manually"
+	MissingOllamaFooterNote      = "ollama not found or not reachable - press " + FooterKeyConfigPort + " to set path or host"
 
 	FooterKeySortColumn   = ","
 	FooterDescSortColumn  = "sort"
@@ -164,11 +165,14 @@ const (
 	runtimeConfigModalSubtitle     = "Overrides saved to config.toml. Shell environment variables take precedence."
 	runtimeConfigHeaderLlama       = "Llama.cpp"
 	runtimeConfigHeaderVLLM        = "vLLM"
+	runtimeConfigHeaderOllama      = "Ollama"
 	runtimeConfigLabelLlamaCppPath = "Path (llama-cli / llama-server)"
 	runtimeConfigLabelVLLMPath     = "Path (vllm binary)"
 	runtimeConfigLabelVLLMVenv     = "Venv Root (Optional)"
 	runtimeConfigLabelLlamaPort    = "Server Port"
 	runtimeConfigLabelVLLMPort     = "Server Port"
+	runtimeConfigLabelOllamaPath   = "Path (ollama binary)"
+	runtimeConfigLabelOllamaHost   = "Host"
 
 	// FooterHintTabSections is the shared "tab: sections" fragment used by split-pane
 	// and parameter modal footers.

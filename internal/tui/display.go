@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flyingnobita/llml/internal/models"
 	"github.com/mattn/go-runewidth"
 )
 
@@ -58,6 +59,20 @@ func FormatModelFolderDisplay(filePath string, homeDir string) string {
 		dir = up
 	}
 	return FormatPathDisplay(parent, homeDir)
+}
+
+func modelIDForRow(f models.ModelFile) string {
+	if f.Backend == models.BackendOllama {
+		return f.Identity()
+	}
+	return models.InferModelID(f.Path)
+}
+
+func formatLocationForRow(f models.ModelFile, homeDir string) string {
+	if f.Backend == models.BackendOllama {
+		return f.DisplayLocation()
+	}
+	return FormatModelFolderDisplay(f.Path, homeDir)
 }
 
 // FormatModTime renders local filesystem modification time (not inference "last run").

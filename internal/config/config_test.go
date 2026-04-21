@@ -104,9 +104,10 @@ func TestFilterExistingPaths(t *testing.T) {
 	files := []models.ModelFile{
 		{Path: gguf, Name: "m.gguf"},
 		{Path: filepath.Join(dir, "missing.gguf"), Name: "missing.gguf"},
+		{Backend: models.BackendOllama, ID: "qwen3.5:latest", Location: "ollama://qwen3.5:latest", Name: "qwen3.5:latest"},
 	}
 	out := FilterExistingPaths(files)
-	if len(out) != 1 || out[0].Path != gguf {
+	if len(out) != 2 || out[0].Path != gguf || out[1].Backend != models.BackendOllama {
 		t.Fatalf("got %+v", out)
 	}
 }
@@ -120,6 +121,18 @@ func TestModelEntryToModelFile(t *testing.T) {
 	}
 	if f.Backend != models.BackendVLLM {
 		t.Fatalf("backend %v", f.Backend)
+	}
+}
+
+func TestModelEntryToModelFile_Ollama(t *testing.T) {
+	t.Parallel()
+	e := ModelEntry{Backend: "ollama", ID: "qwen3.5:latest", Location: "ollama://qwen3.5:latest", Name: "qwen3.5:latest", Size: 1, ModTime: time.Unix(1, 0).UTC(), Parameters: "ollama · qwen"}
+	f, err := e.ToModelFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Backend != models.BackendOllama || f.Identity() != "qwen3.5:latest" {
+		t.Fatalf("file %+v", f)
 	}
 }
 

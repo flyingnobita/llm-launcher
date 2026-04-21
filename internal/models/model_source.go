@@ -32,7 +32,9 @@ func (ggufSource) build(path string) (ModelFile, bool) {
 	}
 	return ModelFile{
 		Backend:    BackendLlama,
+		ID:         path,
 		Path:       path,
+		Location:   path,
 		Name:       filepath.Base(path),
 		Size:       fi.Size(),
 		ModTime:    fi.ModTime(),

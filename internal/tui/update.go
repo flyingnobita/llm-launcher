@@ -2,9 +2,11 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
+	"github.com/flyingnobita/llml/internal/models"
 )
 
 // Update implements tea.Model.
@@ -69,6 +71,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case runServerErrMsg:
 		return m.flashError(msg.err.Error())
+
+	case ollamaLaunchDoneMsg:
+		if msg.err != nil {
+			return m.flashError(msg.err.Error())
+		}
+		if strings.TrimSpace(msg.note) == "" {
+			return m, nil
+		}
+		return m.flashSuccess(msg.note)
+
+	case ollamaLaunchStartedMsg:
+		if strings.TrimSpace(msg.note) == "" {
+			return m, nil
+		}
+		m = m.withLastRunCleared()
+		m.lastRunNote = msg.note
+		m.lastRunNoteSuccess = true
+		m = m.layoutTable()
+		return m, nil
 
 	case llamaServerExitedMsg:
 		if m.server.running {
@@ -216,6 +237,9 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		spec, err := buildServerSpec(be, p, params, m.runtime, true)
 		if err != nil {
 			return m.flashError(err.Error())
+		}
+		if be == models.BackendOllama {
+			return m, runOllamaLaunchCmd(spec)
 		}
 		if mode == runServerModeFullscreen {
 			return m, runForegroundServerCmd(spec)

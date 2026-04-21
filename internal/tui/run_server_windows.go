@@ -9,6 +9,8 @@ import (
 
 func applySplitCmdSysProcAttr(cmd *exec.Cmd) {}
 
+func applyBackgroundCmdSysProcAttr(cmd *exec.Cmd) {}
+
 func interruptServerProcess(cmd *exec.Cmd) error {
 	if cmd == nil || cmd.Process == nil {
 		return nil

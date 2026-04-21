@@ -35,6 +35,8 @@ type RuntimeConfig struct {
 	DefaultLlamaCppPath    string `toml:"default_llama_cpp_path"`
 	DefaultVLLMPath        string `toml:"default_vllm_path"`
 	DefaultVLLMVenv        string `toml:"default_vllm_venv"`
+	DefaultOllamaPath      string `toml:"default_ollama_path"`
+	DefaultOllamaHost      string `toml:"default_ollama_host"`
 	DefaultLlamaServerPort *int   `toml:"default_llama_server_port,omitempty"`
 	DefaultVLLMServerPort  *int   `toml:"default_vllm_server_port,omitempty"`
 }
@@ -48,7 +50,9 @@ type DiscoveryConfig struct {
 // ModelEntry is one cached model row from discovery.
 type ModelEntry struct {
 	Backend    string    `toml:"backend"`
+	ID         string    `toml:"id,omitempty"`
 	Path       string    `toml:"path"`
+	Location   string    `toml:"location,omitempty"`
 	Name       string    `toml:"name"`
 	Size       int64     `toml:"size"`
 	ModTime    time.Time `toml:"mod_time"`
@@ -104,6 +108,10 @@ func ApplyRuntimeFromConfig(r *RuntimeConfig) {
 	applyPathIfUnset(models.EnvLlamaCppPath, r.DefaultLlamaCppPath)
 	applyPathIfUnset(models.EnvVLLMPath, r.DefaultVLLMPath)
 	applyPathIfUnset(models.EnvVLLMVenv, r.DefaultVLLMVenv)
+	applyPathIfUnset(models.EnvOllamaPath, r.DefaultOllamaPath)
+	if v := strings.TrimSpace(r.DefaultOllamaHost); v != "" && os.Getenv(models.EnvOllamaHost) == "" {
+		os.Setenv(models.EnvOllamaHost, v)
+	}
 	if r.DefaultLlamaServerPort != nil && os.Getenv(models.EnvLlamaServerPort) == "" {
 		os.Setenv(models.EnvLlamaServerPort, strconv.Itoa(*r.DefaultLlamaServerPort))
 	}
@@ -140,6 +148,14 @@ func RuntimeFromEnv() RuntimeConfig {
 	}
 	if v := normalizePath(os.Getenv(models.EnvVLLMVenv)); v != "" {
 		r.DefaultVLLMVenv = v
+	}
+	if v := normalizePath(os.Getenv(models.EnvOllamaPath)); v != "" {
+		r.DefaultOllamaPath = v
+	}
+	if v := strings.TrimSpace(os.Getenv(models.EnvOllamaHost)); v != "" {
+		r.DefaultOllamaHost = v
+	} else {
+		r.DefaultOllamaHost = models.OllamaHost()
 	}
 	if v := strings.TrimSpace(os.Getenv(models.EnvLlamaServerPort)); v != "" {
 		if p, err := strconv.Atoi(v); err == nil && p > 0 && p <= 65535 {
@@ -193,7 +209,9 @@ func MergeExtraRoots(discoveryExtra, envExtra []string) []string {
 func ModelEntryFromFile(f models.ModelFile) ModelEntry {
 	return ModelEntry{
 		Backend:    f.Backend.String(),
+		ID:         f.Identity(),
 		Path:       f.Path,
+		Location:   f.DisplayLocation(),
 		Name:       f.Name,
 		Size:       f.Size,
 		ModTime:    f.ModTime,
@@ -207,13 +225,33 @@ func (e ModelEntry) ToModelFile() (models.ModelFile, error) {
 	if err != nil {
 		return models.ModelFile{}, err
 	}
-	path := filepath.Clean(e.Path)
-	if path == "" || path == "." {
+	path := ""
+	if strings.TrimSpace(e.Path) != "" {
+		path = filepath.Clean(e.Path)
+	}
+	id := strings.TrimSpace(e.ID)
+	if id == "" && path != "" {
+		id = path
+	}
+	if id == "" {
+		return models.ModelFile{}, errors.New("empty model identity")
+	}
+	if be != models.BackendOllama && (path == "" || path == ".") {
 		return models.ModelFile{}, errors.New("empty model path")
+	}
+	location := strings.TrimSpace(e.Location)
+	if location == "" {
+		if path != "" {
+			location = path
+		} else {
+			location = id
+		}
 	}
 	return models.ModelFile{
 		Backend:    be,
+		ID:         id,
 		Path:       path,
+		Location:   location,
 		Name:       e.Name,
 		Size:       e.Size,
 		ModTime:    e.ModTime,
@@ -238,6 +276,10 @@ func ModelFilesFromEntries(entries []ModelEntry) []models.ModelFile {
 func FilterExistingPaths(files []models.ModelFile) []models.ModelFile {
 	var out []models.ModelFile
 	for _, f := range files {
+		if f.Backend == models.BackendOllama {
+			out = append(out, f)
+			continue
+		}
 		if _, err := os.Stat(f.Path); err != nil {
 			continue
 		}

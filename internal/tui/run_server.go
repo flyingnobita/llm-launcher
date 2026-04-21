@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/atotto/clipboard"
@@ -21,6 +22,7 @@ type serverSpec struct {
 	bin            string
 	port           int
 	modelPath      string
+	host           string
 	params         ModelParams
 	activateScript string // vLLM only: path to venv activate script
 }
@@ -30,6 +32,25 @@ type serverSpec struct {
 // a placeholder name so display functions show a plausible command even before the runtime is configured.
 func buildServerSpec(backend models.ModelBackend, modelPath string, params ModelParams, rt models.RuntimeInfo, strict bool) (serverSpec, error) {
 	switch backend {
+	case models.BackendOllama:
+		bin := models.ResolveOllamaPath(rt)
+		host := rt.OllamaHost
+		if strings.TrimSpace(host) == "" {
+			host = models.OllamaHost()
+		}
+		if strict && bin == "" && !rt.OllamaRunning {
+			return serverSpec{}, fmt.Errorf(MissingOllamaFooterNote)
+		}
+		if bin == "" {
+			bin = "ollama"
+		}
+		return serverSpec{
+			backend:   models.BackendOllama,
+			bin:       bin,
+			host:      host,
+			modelPath: modelPath,
+			params:    params,
+		}, nil
 	case models.BackendVLLM:
 		bin := models.ResolveVLLMPath(rt)
 		activate := models.ResolveVLLMActivateScript(bin)
@@ -73,6 +94,10 @@ func buildServerSpec(backend models.ModelBackend, modelPath string, params Model
 func (s serverSpec) commandWords() []string {
 	var words []string
 	switch s.backend {
+	case models.BackendOllama:
+		words = []string{
+			shellSingleQuoted(s.bin), "serve",
+		}
 	case models.BackendVLLM:
 		words = []string{
 			shellSingleQuoted(s.bin), "serve",
@@ -103,6 +128,8 @@ func (s serverSpec) commandLine() string {
 func (s serverSpec) directArgs() []string {
 	var args []string
 	switch s.backend {
+	case models.BackendOllama:
+		args = []string{"serve"}
 	case models.BackendVLLM:
 		args = []string{
 			"serve", s.modelPath,
@@ -171,12 +198,25 @@ func (s serverSpec) splitCmd() *exec.Cmd {
 
 // invocationEcho returns the multi-line "+ ..." display string for the split-pane log header.
 func (s serverSpec) invocationEcho() string {
+	if s.backend == models.BackendOllama {
+		lines := []string{
+			"+ " + strings.TrimSpace(shellEnvPrefix(s.params.Env)+shellSingleQuoted(s.bin)+" serve"),
+			"+ preload " + s.modelPath + " on " + s.host + " (keep_alive=-1)",
+		}
+		return strings.Join(lines, "\n")
+	}
 	return shellCommandDisplayMultiline(true, s.activateScript, s.params.Env, s.commandWords())
 }
 
 // previewLine returns the multi-line command for the launch preview and clipboard
 // (no "+ " prefix, no activate wrapper — shows the raw executable invocation).
 func (s serverSpec) previewLine() string {
+	if s.backend == models.BackendOllama {
+		return strings.Join([]string{
+			strings.TrimSpace(shellEnvPrefix(s.params.Env) + shellSingleQuoted(s.bin) + " serve"),
+			fmt.Sprintf("curl http://%s/api/generate -d '{\"model\":\"%s\",\"keep_alive\":-1,\"stream\":false}'", s.host, s.modelPath),
+		}, "\n")
+	}
 	return shellCommandDisplayMultiline(false, "", s.params.Env, s.commandWords())
 }
 
@@ -270,6 +310,58 @@ func runSplitServerCmd(spec serverSpec) tea.Cmd {
 		}()
 		return serverSplitReadyMsg{cmd: cmd, ch: ch}
 	}
+}
+
+func startOllamaDaemon(spec serverSpec) error {
+	cmd := exec.Command(spec.bin, "serve")
+	cmd.Env = mergeEnv(os.Environ(), spec.params.Env)
+	devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	if err != nil {
+		return err
+	}
+	defer devNull.Close()
+	cmd.Stdout = devNull
+	cmd.Stderr = devNull
+	applyBackgroundCmdSysProcAttr(cmd)
+	return cmd.Start()
+}
+
+func waitForOllama() bool {
+	deadline := time.Now().Add(8 * time.Second)
+	for time.Now().Before(deadline) {
+		if models.ProbeOllama() {
+			return true
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	return models.ProbeOllama()
+}
+
+func runOllamaLaunchCmd(spec serverSpec) tea.Cmd {
+	startNote := fmt.Sprintf("Loading %s into Ollama on %s...", spec.modelPath, spec.host)
+	return tea.Batch(
+		func() tea.Msg { return ollamaLaunchStartedMsg{note: startNote} },
+		func() tea.Msg {
+			started := false
+			if !models.ProbeOllama() {
+				if err := startOllamaDaemon(spec); err != nil {
+					return ollamaLaunchDoneMsg{err: err}
+				}
+				started = true
+				if !waitForOllama() {
+					return ollamaLaunchDoneMsg{err: fmt.Errorf("ollama did not become ready on %s", spec.host)}
+				}
+			}
+			if err := models.PreloadOllamaModel(spec.modelPath); err != nil {
+				return ollamaLaunchDoneMsg{err: err}
+			}
+			note := fmt.Sprintf("Loaded %s into Ollama on %s", spec.modelPath, spec.host)
+			if started {
+				note = fmt.Sprintf("Started Ollama and loaded %s on %s", spec.modelPath, spec.host)
+			}
+			return ollamaLaunchDoneMsg{note: note}
+		},
+	)
 }
 
 // readNextServerMsg blocks for the next message from a split-pane log channel (call from a tea.Cmd).
