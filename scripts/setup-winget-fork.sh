@@ -23,4 +23,5 @@ fi
 echo "Syncing ${fork_repo} default branch with upstream (branch: master)..."
 gh repo sync "${fork_repo}" -b master
 
-echo "Done. Add repo secret WINGET_GITHUB_TOKEN on flyingnobita/llml (PAT with push to ${fork_repo})."
+echo "Done. Add repo secret WINGET_GITHUB_TOKEN on flyingnobita/llml."
+echo "Use a classic PAT for release automation: it must push to ${fork_repo} and open a PR into microsoft/winget-pkgs."

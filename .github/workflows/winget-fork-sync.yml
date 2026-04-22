@@ -1,5 +1,8 @@
 # Sync the winget-pkgs fork before or after releases so GoReleaser PRs merge cleanly.
-# Requires: repository secret WINGET_GITHUB_TOKEN (PAT with contents:write on the fork).
+# Requires: repository secret WINGET_GITHUB_TOKEN.
+# For fork sync, a fine-grained PAT scoped to the fork is enough, but the release workflow's
+# PR creation into microsoft/winget-pkgs requires a classic PAT. Keep one classic PAT here
+# so both sync and release use the same credential model.
 
 name: Sync winget-pkgs fork
 
