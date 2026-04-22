@@ -60,12 +60,16 @@ const (
 	// lastRunNoteVisibleDuration is how long the status line below the footer
 	// stays visible before clearing (e.g. copy feedback, scan results).
 	lastRunNoteVisibleDuration = 5 * time.Second
+
+	// alertPaneVisibleLines is the number of visible rows inside the alert-history viewport.
+	alertPaneVisibleLines = 6
 )
 
 // Main view pane captions (Title Case). Shown above the launch preview and server log only.
 const (
 	MainPaneTitleLaunchCommand = "Launch Command"
 	MainPaneTitleServerOutput  = "Server Output"
+	MainPaneTitleAlerts        = "Alert History"
 )
 
 // Column-width defaults for the model table.
@@ -114,6 +118,10 @@ const (
 	FooterKeyModelPaths  = "m"
 	FooterDescModelPaths = "Model Paths"
 	FooterHintModelPaths = FooterKeyModelPaths + ": " + FooterDescModelPaths
+
+	FooterKeyAlerts  = "a"
+	FooterDescAlerts = "alerts"
+	FooterHintAlerts = FooterKeyAlerts + ": " + FooterDescAlerts
 
 	FooterKeyToggleTheme  = "t"
 	FooterDescToggleTheme = "theme"

@@ -49,6 +49,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.applyScanResult(nil, msg.files, msg.lastScan, msg.configPaths, msg.writeErr, false)
 
 	case runtimeReloadErrMsg:
+		m = m.addAlert(alertSeverityError, "Config", msg.err.Error())
 		return m.flashError(msg.err.Error())
 
 	case modelsLoadedMsg:
@@ -67,18 +68,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case modelsErrMsg:
 		m.loading = false
 		m.loadErr = msg.err
+		m = m.addAlert(alertSeverityError, "Discovery", msg.err.Error())
 		return m, nil
 
 	case runServerErrMsg:
+		m = m.addAlert(alertSeverityError, "System", msg.err.Error())
 		return m.flashError(msg.err.Error())
 
 	case ollamaLaunchDoneMsg:
 		if msg.err != nil {
+			m = m.clearCurrentStatus()
+			m = m.addAlert(alertSeverityError, "Ollama", msg.err.Error())
 			return m.flashError(msg.err.Error())
 		}
+		m = m.clearCurrentStatus()
 		if strings.TrimSpace(msg.note) == "" {
 			return m, nil
 		}
+		m = m.addAlert(alertSeverityInfo, "Ollama", msg.note)
 		return m.flashSuccess(msg.note)
 
 	case ollamaLaunchStartedMsg:
@@ -86,8 +93,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m = m.withLastRunCleared()
-		m.lastRunNote = msg.note
-		m.lastRunNoteSuccess = true
+		m = m.setCurrentStatus("Ollama", msg.note)
 		m = m.layoutTable()
 		return m, nil
 
@@ -97,9 +103,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.server.cmd = nil
 			m.server.msgCh = nil
 			if msg.err != nil {
+				m = m.addAlert(alertSeverityError, "System", msg.err.Error())
 				m = m.withLastRunError(msg.err.Error())
 				m = m.appendServerLogLine(fmt.Sprintf("%s · %s", msg.err.Error(), splitPanePressEnterToClose))
 			} else {
+				m = m.addAlert(alertSeverityInfo, "System", "Server stopped")
 				m = m.withLastRunCleared()
 				m = m.appendServerLogLine(splitServerStoppedWithHint)
 			}
@@ -110,6 +118,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if msg.err != nil {
+			m = m.addAlert(alertSeverityError, "System", msg.err.Error())
 			m = m.withLastRunError(msg.err.Error())
 			return m, clearLastRunNoteAfterCmd()
 		}
@@ -136,6 +145,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.stopSplitServer()
 
 	case tea.MouseWheelMsg:
+		if m.alerts.open {
+			var cmd tea.Cmd
+			m.alerts.viewport, cmd = m.alerts.viewport.Update(msg)
+			return m, cmd
+		}
 		if m.server.running {
 			var cmd tea.Cmd
 			if m.server.splitFocused {
@@ -195,6 +209,10 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.updateDiscoveryPathsKey(msg)
 	}
 	if m.server.running {
+		if key.Matches(msg, m.keys.Alerts) {
+			m = m.toggleAlerts()
+			return m, nil
+		}
 		if key.Matches(msg, m.keys.Help) {
 			m.helpOpen = true
 			return m, nil
@@ -206,6 +224,10 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	if key.Matches(msg, m.keys.Help) {
 		m.helpOpen = true
+		return m, nil
+	}
+	if key.Matches(msg, m.keys.Alerts) {
+		m = m.toggleAlerts()
 		return m, nil
 	}
 	if m.preview.focused && isTabKey(msg) {
@@ -247,8 +269,18 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, runSplitServerCmd(spec)
 	}
 	if m.preview.focused {
+		if m.alerts.open {
+			var cmd tea.Cmd
+			m.alerts.viewport, cmd = m.alerts.viewport.Update(msg)
+			return m, cmd
+		}
 		var cmd tea.Cmd
 		m.preview.viewport, cmd = m.preview.viewport.Update(msg)
+		return m, cmd
+	}
+	if m.alerts.open {
+		var cmd tea.Cmd
+		m.alerts.viewport, cmd = m.alerts.viewport.Update(msg)
 		return m, cmd
 	}
 	if m.launchPreviewVisible() && isTabKey(msg) {

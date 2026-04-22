@@ -58,6 +58,7 @@ func helpSections() []struct {
 		{
 			title: "General",
 			entries: []helpEntry{
+				{"a", "Toggle alert history"},
 				{"t", "Cycle theme"},
 				{"?", "Keyboard shortcuts"},
 				{"q", "Quit"},

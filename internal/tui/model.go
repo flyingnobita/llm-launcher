@@ -40,7 +40,7 @@ type tableState struct {
 	tbl      btable.Model
 	hscroll  viewport.Model
 	files    []models.ModelFile
-	sortCol  tableSortCol // default Path ascending matches models.Discover order
+	sortCol  tableSortCol // default Runtime ascending
 	sortDesc bool         // false = ascending
 	lastScan time.Time
 }
@@ -89,6 +89,17 @@ type launchPreviewState struct {
 	lastCmd  string // resets scroll when the displayed command changes
 }
 
+// alertsState holds persistent current status plus a toggleable history pane.
+type alertsState struct {
+	open        bool
+	unread      int
+	current     string
+	currentSrc  string
+	history     []alertEntry
+	viewport    viewport.Model
+	lastContent string
+}
+
 // discoveryPathsState holds the model-discovery paths modal's state.
 type discoveryPathsState struct {
 	open      bool
@@ -115,6 +126,7 @@ type Model struct {
 	params    paramsState
 	server    serverPaneState
 	preview   launchPreviewState
+	alerts    alertsState
 	discovery discoveryPathsState
 	paneFocus mainPaneFocusSnap
 
@@ -163,6 +175,16 @@ func newLaunchPreviewViewport(st styles) viewport.Model {
 	return lpv
 }
 
+func newAlertViewport(st styles) viewport.Model {
+	avOuter := alertPaneVisibleLines + st.alertPaneViewport.GetVerticalFrameSize()
+	av := viewport.New(viewport.WithWidth(96), viewport.WithHeight(avOuter))
+	av.MouseWheelEnabled = true
+	av.MouseWheelDelta = 1
+	av.SoftWrap = true
+	av.Style = st.alertPaneViewport
+	return av
+}
+
 func newRuntimeConfigInputs() [runtimeFieldCount]textinput.Model {
 	return [runtimeFieldCount]textinput.Model{
 		newPathTextInput(),
@@ -188,6 +210,7 @@ func New() Model {
 		table:     tableState{sortCol: defaultSortCol, tbl: t, hscroll: hv},
 		server:    serverPaneState{viewport: newServerLogViewport(st)},
 		preview:   launchPreviewState{viewport: newLaunchPreviewViewport(st)},
+		alerts:    alertsState{viewport: newAlertViewport(st)},
 		rc:        runtimeConfigState{inputs: newRuntimeConfigInputs()},
 		params:    paramsState{editInput: newParamLineTextInput()},
 		discovery: discoveryPathsState{editInput: newPathTextInput()},
@@ -356,6 +379,7 @@ func (m Model) layoutTable() Model {
 	}
 
 	m = m.syncLaunchPreviewViewport(m.layout.bodyInnerW)
+	m = m.syncAlertViewport()
 	m = m.applyMainPaneFocusStyles()
 	return m
 }
@@ -433,6 +457,16 @@ func (m Model) launchPreviewPaneLayoutHeight() int {
 		mainPaneTitleLines +
 		m.ui.styles.launchPreviewViewport.GetVerticalFrameSize() +
 		launchPreviewVisibleLines
+}
+
+func (m Model) alertPaneLayoutHeight() int {
+	if !m.alerts.open {
+		return 0
+	}
+	return m.ui.styles.alertPane.GetMarginTop() +
+		mainPaneTitleLines +
+		m.alerts.viewport.Style.GetVerticalFrameSize() +
+		alertPaneVisibleLines
 }
 
 // syncLaunchPreviewViewport sets viewport dimensions and wrapped content from the selected row.
@@ -541,6 +575,7 @@ func (m Model) applySplitPaneFocusStyles() Model {
 	if !m.server.running {
 		m.table.hscroll.Style = m.ui.styles.splitPaneChromeFocused
 		m.server.viewport.Style = m.ui.styles.serverLogViewport
+		m.alerts.viewport.Style = m.ui.styles.alertPaneViewport
 		return m
 	}
 	if m.server.splitFocused {
@@ -553,6 +588,7 @@ func (m Model) applySplitPaneFocusStyles() Model {
 		m.table.hscroll.Style = m.ui.styles.splitPaneChromeFocused
 		m.server.viewport.Style = m.ui.styles.splitPaneChromeDim
 	}
+	m.alerts.viewport.Style = m.ui.styles.alertPaneViewport
 	return m
 }
 
@@ -578,6 +614,7 @@ func (m Model) cycleTheme() (Model, tea.Cmd) {
 	m.ui.styles = newStyles(m.ui.theme)
 	m.ui.themeToast = themeToastText(m.ui.themePick, m.ui.theme)
 	m.preview.viewport.Style = m.ui.styles.launchPreviewViewport
+	m.alerts.viewport.Style = m.ui.styles.alertPaneViewport
 	m = m.layoutTable()
 	return m, clearThemeToastAfterCmd()
 }
@@ -613,6 +650,83 @@ func (m Model) flashSuccess(msg string) (Model, tea.Cmd) {
 	return m.withLastRunSuccess(msg), clearLastRunNoteAfterCmd()
 }
 
+func (m Model) setCurrentStatus(source, msg string) Model {
+	m.alerts.currentSrc = strings.TrimSpace(source)
+	m.alerts.current = strings.TrimSpace(msg)
+	return m
+}
+
+func (m Model) clearCurrentStatus() Model {
+	m.alerts.currentSrc = ""
+	m.alerts.current = ""
+	return m
+}
+
+func (m Model) addAlert(severity alertSeverity, source, msg string) Model {
+	msg = strings.TrimSpace(msg)
+	if msg == "" {
+		return m
+	}
+	entry := alertEntry{
+		at:       time.Now(),
+		severity: severity,
+		source:   strings.TrimSpace(source),
+		message:  msg,
+	}
+	m.alerts.history = append(m.alerts.history, entry)
+	if !m.alerts.open {
+		m.alerts.unread++
+	}
+	return m.syncAlertViewport()
+}
+
+func (m Model) syncAlertViewport() Model {
+	iw := m.layout.bodyInnerW
+	if iw < 1 {
+		iw = m.innerWidth()
+	}
+	if iw < minInnerWidth {
+		iw = minInnerWidth
+	}
+	fr := m.alerts.viewport.Style.GetHorizontalFrameSize()
+	textW := iw - fr
+	if textW < 8 {
+		textW = 8
+	}
+	outerH := alertPaneVisibleLines + m.alerts.viewport.Style.GetVerticalFrameSize()
+	content := m.renderAlertHistoryContent(textW)
+	if content != m.alerts.lastContent {
+		m.alerts.lastContent = content
+		m.alerts.viewport.SetContent(content)
+		m.alerts.viewport.GotoBottom()
+	} else {
+		m.alerts.viewport.SetContent(content)
+	}
+	m.alerts.viewport.SetWidth(iw)
+	m.alerts.viewport.SetHeight(outerH)
+	if m.alerts.viewport.TotalLineCount() > m.alerts.viewport.VisibleLineCount() {
+		m.alerts.viewport.SetWidth(iw - 1)
+		textW = iw - 1 - fr
+		if textW < 8 {
+			textW = 8
+		}
+		content = m.renderAlertHistoryContent(textW)
+		m.alerts.lastContent = content
+		m.alerts.viewport.SetContent(content)
+		m.alerts.viewport.SetHeight(outerH)
+	}
+	return m
+}
+
+func (m Model) toggleAlerts() Model {
+	m.alerts.open = !m.alerts.open
+	if m.alerts.open {
+		m.alerts.unread = 0
+	}
+	m = m.layoutTable()
+	return m.syncAlertViewport()
+}
+
 // applyScanResult applies the result of a model scan to the model.
 // runtime may be nil (model-only rescan); when non-nil it replaces m.runtime.
 // firstLoad resets the table cursor to 0; otherwise cursor is only adjusted if out of range.
@@ -640,6 +754,7 @@ func (m Model) applyScanResult(runtime *models.RuntimeInfo, files []models.Model
 	}
 	if writeErr != nil {
 		m = m.withLastRunError("Could not save config: " + writeErr.Error())
+		m = m.addAlert(alertSeverityWarn, "Config", "Could not save config: "+writeErr.Error())
 		return m.maybeSetMissingRuntimeFooterNoteBatch(clearLastRunNoteAfterCmd())
 	}
 	m = m.withLastRunCleared()
@@ -660,5 +775,6 @@ func (m Model) dismissSplitServer() Model {
 	m.server.viewport.SetContent("")
 	m.table.tbl.Focus()
 	m = m.layoutTable()
+	m = m.syncAlertViewport()
 	return m
 }

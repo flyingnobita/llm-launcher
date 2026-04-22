@@ -54,6 +54,15 @@ func (m Model) cycleSplitPaneFocus() Model {
 // updateServerSplitKeys handles input while a split-pane server is running.
 // Tab switches focus between the model table, launch preview, and the log viewport.
 func (m Model) updateServerSplitKeys(msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	if key.Matches(msg, m.keys.Alerts) {
+		m = m.toggleAlerts()
+		return m, nil
+	}
+	if m.alerts.open {
+		var cmd tea.Cmd
+		m.alerts.viewport, cmd = m.alerts.viewport.Update(msg)
+		return m, cmd
+	}
 	if m.server.exited {
 		switch {
 		case isTabKey(msg):

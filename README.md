@@ -30,6 +30,9 @@ Browse local models. Detect the right runtime. Launch with one key.
   settings. The active profile is always one key away.
 - **One-keystroke launch** — select a model, select a profile, press `R`. The generated
   command is shown before execution and server output streams directly in the TUI.
+- **Persistent status and alert history** — long-running work such as Ollama preloads stays
+  visible in a persistent status line, while warnings and errors remain inspectable in a
+  dedicated alert-history pane.
 - **Ollama preload flow** — Ollama models are discovered via the Ollama API. Pressing
   `R` starts `ollama serve` if needed, then preloads the selected model into the
   shared Ollama service with `keep_alive: -1`.
@@ -129,6 +132,7 @@ llml
 | `m`         | Edit extra model search paths (saved in `config.toml`)                             |
 | `,` / `.`   | Change sort column / reverse sort direction                                        |
 | `enter`     | Copy the launch command for the selected row to the clipboard                      |
+| `a`         | Toggle alert history pane                                                          |
 | `t`         | Cycle theme (`dark` → `light` → `auto` → …)                                        |
 | `?`         | Toggle the full shortcut help overlay                                              |
 | `q`         | Quit                                                                               |
@@ -143,6 +147,17 @@ For **Ollama** rows, `R` and `ctrl`+`R` do not start a dedicated per-model port.
 Instead, `llml` ensures the shared Ollama daemon is running on the configured host
 and preloads the selected model into memory with `keep_alive: -1`. The selected row
 still matters, but the service endpoint remains the shared Ollama host.
+
+### Status and alerts
+
+`llml` separates active work from alert history:
+
+- a persistent status line shows in-flight operations such as starting Ollama or loading a model
+- `a` opens a bottom alert-history pane with timestamped `INFO`, `WARN`, and `ERROR` entries
+- when the pane is closed, the footer shows an unread alert count
+
+Minor confirmations such as copy-to-clipboard remain transient. Important failures and lifecycle
+events remain inspectable in alert history until you dismiss or replace them by later work.
 
 ### Parameter profiles (`p`)
 

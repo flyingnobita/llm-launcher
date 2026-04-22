@@ -82,6 +82,21 @@ type themeToastClearMsg struct{}
 // lastRunNoteClearMsg clears the status line below the footer.
 type lastRunNoteClearMsg struct{}
 
+type alertSeverity int
+
+const (
+	alertSeverityInfo alertSeverity = iota
+	alertSeverityWarn
+	alertSeverityError
+)
+
+type alertEntry struct {
+	at       time.Time
+	severity alertSeverity
+	source   string
+	message  string
+}
+
 type ollamaLaunchDoneMsg struct {
 	note string
 	err  error

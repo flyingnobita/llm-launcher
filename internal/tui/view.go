@@ -64,6 +64,83 @@ func (m Model) serverLogPaneView() string {
 	return lipgloss.JoinVertical(lipgloss.Left, title, row)
 }
 
+func formatAlertTimestamp(ts time.Time) string {
+	return ts.Local().Format("15:04:05")
+}
+
+func (m Model) renderAlertLine(e alertEntry, width int) string {
+	prefix := fmt.Sprintf("[%s] ", formatAlertTimestamp(e.at))
+	source := strings.TrimSpace(e.source)
+	if source != "" {
+		source += " "
+	}
+	tag := "INFO"
+	tagStyle := m.ui.styles.alertTitleInfo
+	switch e.severity {
+	case alertSeverityWarn:
+		tag = "WARN"
+		tagStyle = m.ui.styles.alertTitleWarn
+	case alertSeverityError:
+		tag = "ERROR"
+		tagStyle = m.ui.styles.alertTitleError
+	}
+	head := prefix + tagStyle.Render(tag) + " " + source
+	bodyW := width - lipgloss.Width(prefix) - len(tag) - 1 - lipgloss.Width(source)
+	if bodyW < 16 {
+		bodyW = 16
+	}
+	return head + lipgloss.NewStyle().Width(bodyW).Render(e.message)
+}
+
+func (m Model) renderAlertHistoryContent(width int) string {
+	if len(m.alerts.history) == 0 {
+		return m.ui.styles.bodyDim.Width(width).Render("No alerts yet.")
+	}
+	lines := make([]string, 0, len(m.alerts.history))
+	for _, e := range m.alerts.history {
+		lines = append(lines, m.renderAlertLine(e, width))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (m Model) currentStatusView() string {
+	if strings.TrimSpace(m.alerts.current) == "" {
+		return ""
+	}
+	line := m.alerts.current
+	if src := strings.TrimSpace(m.alerts.currentSrc); src != "" {
+		line = src + " | " + line
+	}
+	return m.ui.styles.statusLine.Render(line)
+}
+
+func (m Model) alertsFooterHint() string {
+	if m.alerts.unread <= 0 {
+		return FooterHintAlerts
+	}
+	return fmt.Sprintf("%s (%d)", FooterHintAlerts, m.alerts.unread)
+}
+
+func (m Model) alertsTitleStyle() lipgloss.Style {
+	return titledPaneStyle(m.alerts.open, m.ui.theme.SplitPaneBorderFocused, m.ui.theme.Border)
+}
+
+func (m Model) alertHistoryPaneView() string {
+	if !m.alerts.open {
+		return ""
+	}
+	title := m.mainPaneCaptionLine(MainPaneTitleAlerts, m.alertsTitleStyle())
+	vp := m.alerts.viewport.View()
+	var inner string
+	if m.alerts.viewport.TotalLineCount() <= m.alerts.viewport.VisibleLineCount() {
+		inner = vp
+	} else {
+		inner = m.withVScrollBar(vp, viewportVerticalScrollPercent(m.alerts.viewport))
+	}
+	stack := lipgloss.JoinVertical(lipgloss.Left, title, inner)
+	return m.ui.styles.alertPane.Render(stack)
+}
+
 // launchPreviewVisible is true when the main table lists models and a launch preview can be shown.
 func (m Model) launchPreviewVisible() bool {
 	return !m.loading && m.loadErr == nil && len(m.table.files) > 0
@@ -179,14 +256,14 @@ func footerHelpLine(m Model) string {
 		}
 		if m.server.splitFocused {
 			return fmt.Sprintf(
-				"%s · %s · %s · %s",
-				FooterHintTabSections, FooterNavHint, stopOrDismiss, FooterHintHelp,
+				"%s · %s · %s · %s · %s",
+				FooterHintTabSections, FooterNavHint, stopOrDismiss, m.alertsFooterHint(), FooterHintHelp,
 			)
 		}
 		if m.preview.focused {
 			return fmt.Sprintf(
-				"%s · %s · %s · %s · %s",
-				FooterHintTabSections, FooterNavHint, FooterHintCopyPath, stopOrDismiss, FooterHintHelp,
+				"%s · %s · %s · %s · %s · %s",
+				FooterHintTabSections, FooterNavHint, FooterHintCopyPath, stopOrDismiss, m.alertsFooterHint(), FooterHintHelp,
 			)
 		}
 		// Table focused: same global shortcuts as the idle view except run (R / ctrl+R) while a server is up.
@@ -194,14 +271,15 @@ func footerHelpLine(m Model) string {
 			FooterHintTabSections,
 			FooterNavHint,
 			stopOrDismiss,
+			m.alertsFooterHint(),
 			FooterHintHelp,
 		}
 		return strings.Join(parts, FooterHintSep)
 	}
 	if m.preview.focused {
 		return fmt.Sprintf(
-			"%s · %s · %s · %s · %s · %s",
-			FooterHintTabSections, FooterNavHint, FooterHintRunSplit, FooterHintParameters, FooterHintCopyPath, FooterHintHelp,
+			"%s · %s · %s · %s · %s · %s · %s",
+			FooterHintTabSections, FooterNavHint, FooterHintRunSplit, FooterHintParameters, FooterHintCopyPath, m.alertsFooterHint(), FooterHintHelp,
 		)
 	}
 	parts := []string{
@@ -209,6 +287,7 @@ func footerHelpLine(m Model) string {
 		FooterNavHint,
 		FooterHintRunSplit,
 		FooterHintParameters,
+		m.alertsFooterHint(),
 		FooterHintHelp,
 	}
 	return strings.Join(parts, FooterHintSep)
@@ -238,8 +317,14 @@ func mainChromeLines(m Model, needsTableHBar bool, needsLogHBar bool) int {
 
 	n += lipgloss.Height(m.ui.styles.footer.Render(footerHelpLine(m)))
 
+	if m.alerts.current != "" {
+		n += lipgloss.Height(m.currentStatusView())
+	}
 	if m.lastRunNote != "" {
 		n += lipgloss.Height(m.lastRunNoteView())
+	}
+	if m.alerts.open {
+		n += m.alertPaneLayoutHeight()
 	}
 	return n
 }
@@ -414,8 +499,14 @@ func (m Model) mainAppPlacedView() string {
 	header := lipgloss.JoinVertical(lipgloss.Left, headerParts...)
 
 	tailParts := []string{body, footer}
+	if m.alerts.current != "" {
+		tailParts = append(tailParts, m.currentStatusView())
+	}
 	if m.lastRunNote != "" {
 		tailParts = append(tailParts, m.lastRunNoteView())
+	}
+	if alerts := m.alertHistoryPaneView(); alerts != "" {
+		tailParts = append(tailParts, alerts)
 	}
 	tail := lipgloss.JoinVertical(lipgloss.Left, tailParts...)
 
@@ -428,8 +519,14 @@ func (m Model) mainAppPlacedView() string {
 		if pad > 0 {
 			body, _ = m.mainAppModelListBody(iw, tableScrollBase+pad)
 			tailParts = []string{body, footer}
+			if m.alerts.current != "" {
+				tailParts = append(tailParts, m.currentStatusView())
+			}
 			if m.lastRunNote != "" {
 				tailParts = append(tailParts, m.lastRunNoteView())
+			}
+			if alerts := m.alertHistoryPaneView(); alerts != "" {
+				tailParts = append(tailParts, alerts)
 			}
 			tail = lipgloss.JoinVertical(lipgloss.Left, tailParts...)
 			combined = lipgloss.JoinVertical(lipgloss.Left, header, tail)

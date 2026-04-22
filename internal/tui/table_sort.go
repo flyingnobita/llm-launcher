@@ -20,8 +20,8 @@ const (
 	tableSortColCount
 )
 
-// defaultSortCol matches discovery order ([models.Discover] sorts by path ascending).
-const defaultSortCol tableSortCol = tableSortColPath
+// defaultSortCol is the initial table sort shown at startup.
+const defaultSortCol tableSortCol = tableSortColRuntime
 
 // sortModelFiles reorders files in place with a stable sort by column and direction.
 func sortModelFiles(files []models.ModelFile, col tableSortCol, desc bool) {

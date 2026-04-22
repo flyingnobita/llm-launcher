@@ -43,11 +43,12 @@ scripts/             # gofmt-check.sh, precommit-docs-fix.sh
 
 ### Bubble Tea pattern
 
-- `Model` in `model.go` is a **coordinator** holding 7 sub-state structs (`layoutState`, `themeState`, `tableState`, `runtimeConfigState`, `paramsState`, `serverPaneState`, `launchPreviewState`) plus top-level fields (`keys`, `runtime`, `loading`, `lastRunNote`, …). `New()` returns an initialized model. Access state via `m.layout.width`, `m.ui.styles`, `m.table.tbl`, `m.server.running`, `m.preview.focused`, etc.
+- `Model` in `model.go` is a **coordinator** holding 8 sub-state structs (`layoutState`, `themeState`, `tableState`, `runtimeConfigState`, `paramsState`, `serverPaneState`, `launchPreviewState`, `alertsState`) plus top-level fields (`keys`, `runtime`, `loading`, `lastRunNote`, …). `New()` returns an initialized model. Access state via `m.layout.width`, `m.ui.styles`, `m.table.tbl`, `m.server.running`, `m.preview.focused`, `m.alerts.open`, etc.
 - `Init()`, `Update()`, `View()` implement `tea.Model`.
 - Messages are defined in `messages.go`; commands in `cmd.go`.
 - Key dispatch in `Update` delegates to `handleKey` (idle/modal routing) → `tableNavKeys` (shared bindings for both idle and split-pane table focus: config, params, theme, scroll, copy, sort). Split-pane key handling is in `update_split.go`.
 - Layout recalculation lives in `layoutTable()` on `Model`, with helpers `computeBodyHeight` and `applyTableAndLogHeights`. Log h-bar visibility is determined from exact style frame sizes (no guess-and-redo second pass). Table row height is chosen so the full `View()` fits the terminal (Bubble Tea otherwise keeps only the **bottom** lines and clips the header).
+- Alert history uses a dedicated bottom `viewport` pane toggled with **`a`**. Active work should use the persistent current-status line; meaningful warnings/errors/lifecycle events should append to alert history instead of relying only on transient footer notes.
 - **Server launch** (`run_server.go`): `buildServerSpec` resolves backend-specific launch state into a `serverSpec` value; spec methods `foregroundCmd`, `splitCmd`, `invocationEcho`, `previewLine` generate backend- and platform-specific commands. For Ollama, `R` / `ctrl+R` start `ollama serve` if needed and preload the selected model with `keep_alive: -1` on the shared Ollama host rather than starting a per-model port.
 - Theme palettes live in `theme.go` (`DarkTheme`, `LightTheme`; startup via `LLML_THEME`, runtime cycle with **`t`**: dark → light → auto). The transient confirmation is a **compact chip on the title row** (not an extra banner line) so the layout does not jump.
   Lip Gloss styles are built in `styles.go` via `newStyles`. Do not call `lipgloss.NewStyle()` inline

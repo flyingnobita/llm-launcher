@@ -19,7 +19,15 @@ type styles struct {
 	footer            lipgloss.Style
 	// scrollBarColumn colors the █/░ track beside viewports (no margin).
 	scrollBarColumn        lipgloss.Style
+	infoLine               lipgloss.Style
+	warnLine               lipgloss.Style
 	errLine                lipgloss.Style
+	statusLine             lipgloss.Style
+	alertPane              lipgloss.Style
+	alertPaneViewport      lipgloss.Style
+	alertTitleInfo         lipgloss.Style
+	alertTitleWarn         lipgloss.Style
+	alertTitleError        lipgloss.Style
 	runtimePanel           lipgloss.Style
 	portConfigTitle        lipgloss.Style
 	portConfigBox          lipgloss.Style
@@ -70,7 +78,20 @@ func newStyles(theme Theme) styles {
 			Foreground(theme.Footer),
 		scrollBarColumn: lipgloss.NewStyle().
 			Foreground(theme.Footer),
-		errLine: lipgloss.NewStyle().Foreground(theme.Error),
+		infoLine: lipgloss.NewStyle().Foreground(theme.Info),
+		warnLine: lipgloss.NewStyle().Foreground(theme.Warn),
+		errLine:  lipgloss.NewStyle().Foreground(theme.Error),
+		statusLine: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(theme.Body),
+		alertPane: lipgloss.NewStyle().MarginTop(1),
+		alertPaneViewport: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(theme.Border).
+			Padding(0, 1),
+		alertTitleInfo:  lipgloss.NewStyle().Bold(true).Foreground(theme.Info),
+		alertTitleWarn:  lipgloss.NewStyle().Bold(true).Foreground(theme.Warn),
+		alertTitleError: lipgloss.NewStyle().Bold(true).Foreground(theme.Error),
 		runtimePanel: lipgloss.NewStyle().
 			BorderTop(true).
 			BorderForeground(theme.Border).

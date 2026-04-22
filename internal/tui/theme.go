@@ -46,6 +46,8 @@ type Theme struct {
 	Subtitle color.Color
 	Body     color.Color
 	Footer   color.Color
+	Info     color.Color
+	Warn     color.Color
 	Error    color.Color
 	// Border is the default pane and modal border color. In split-server mode it
 	// is also the inactive split-pane chrome (dim model table, launch preview,
@@ -80,6 +82,8 @@ func DarkTheme() Theme {
 		Subtitle:     lipgloss.Color("241"),
 		Body:         lipgloss.Color("252"),
 		Footer:       lipgloss.Color("240"),
+		Info:         lipgloss.Color("75"),
+		Warn:         lipgloss.Color("221"),
 		Error:        lipgloss.Color("203"),
 		Border:       border,
 		RuntimePanel: lipgloss.Color("246"),
@@ -108,6 +112,8 @@ func LightTheme() Theme {
 		Subtitle:     lipgloss.Color("243"),
 		Body:         lipgloss.Color("235"),
 		Footer:       lipgloss.Color("249"),
+		Info:         lipgloss.Color("27"),
+		Warn:         lipgloss.Color("136"),
 		Error:        lipgloss.Color("160"),
 		Border:       border,
 		RuntimePanel: lipgloss.Color("238"),

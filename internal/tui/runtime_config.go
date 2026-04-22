@@ -244,6 +244,7 @@ func (m Model) commitRuntimeConfig() (Model, tea.Cmd) {
 	var cmd tea.Cmd
 	if err := writeConfigFromModel(m); err != nil {
 		m = m.withLastRunError("Could not save config: " + err.Error())
+		m = m.addAlert(alertSeverityWarn, "Config", "Could not save config: "+err.Error())
 		cmd = clearLastRunNoteAfterCmd()
 	} else {
 		m = m.withLastRunCleared()

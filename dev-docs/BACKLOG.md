@@ -18,12 +18,14 @@ Completed backlog items (recent).
 - [x] (vLLM) Safetensors + `config.json` dirs discovered; `R` runs `vllm serve`; `VLLM_PATH` + detection
 - [x] (Config) TOML persistence at `{UserConfigDir}/llml/config.toml` — `schema_version`, `[runtime]`, `[discovery]`, `[[models]]`; env overrides TOML; skip full scan when cache valid; `r` reload runtime only, `S` rescan models, `c` write `[runtime]`; merge `discovery.extra_model_paths` with `LLML_MODEL_PATHS`; last-scan timestamp in UI; warn on config write failure
 - [x] (Parameter Profiles) Persist an active profile per model and use it for `R`, `ctrl+R`, and launch preview
+- [x] (Models, Runtime, TUI) Add Ollama backend support with API discovery, runtime detection, cached rows, daemon-first launch behavior, and model preload with `keep_alive: -1`
+- [x] (TUI) Add persistent current status for active backend and model-loading work
+- [x] (TUI) Add alert-history pane with `a` toggle, unread count, and timestamped severity-tagged entries
 
 ## Now
 
 Work you intend to do soon.
 
-- [ ] (Models, Runtime, TUI) Add Ollama backend support with API discovery, runtime detection, cached rows, and `ollama run` launch flow
 - [ ] (Runtime Detection) Warn user if no runtimes are detected
 - [ ] (Model Detection) Warn user if no models are detected
 

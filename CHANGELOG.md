@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 Format: `- MMM-DD, YYYY - HH:MM AM/PM TIMEZONE - [Concise summary]`
 
+- Apr-22, 2026 - 08:48 AM +08 - [TUI: persistent current-status line for active work; `a` toggles bottom alert-history pane with unread counts, timestamped severity/source entries, and help/footer updates; default sort now starts on Runtime]
+
 - Apr-22, 2026 - 12:09 AM +08 - [Ollama: discover models via `/api/tags`; detect `OLLAMA_PATH` and `OLLAMA_HOST`; cache Ollama rows; `R` / `ctrl+R` start `ollama serve` if needed and preload the selected model with `keep_alive: -1`; docs updated]
 
 - Apr-20, 2026 - [Runtime: macOS vLLM binary discovery includes `~/.venv-vllm-metal/bin` (before `PATH`); `activate` resolves next to that `vllm` via existing venv rules; README detection order]
