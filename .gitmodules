@@ -1,0 +1,3 @@
+[submodule "dev-docs"]
+	path = dev-docs
+	url = /home/omarchy/Data/Projects/Personal/llm-launcher-internal
