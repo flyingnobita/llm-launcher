@@ -84,9 +84,10 @@ type serverPaneState struct {
 
 // launchPreviewState holds the launch-command preview viewport below the table.
 type launchPreviewState struct {
-	viewport viewport.Model
-	focused  bool   // idle only: Tab toggles with table whenever the preview is visible
-	lastCmd  string // resets scroll when the displayed command changes
+	viewport          viewport.Model
+	focused           bool   // idle only: Tab toggles with table whenever the preview is visible
+	lastCmd           string // resets scroll when the displayed command changes
+	activeProfileName string // cached active profile name for the title line
 }
 
 // alertsState holds persistent current status plus a toggleable history pane.
@@ -484,6 +485,7 @@ func (m Model) syncLaunchPreviewViewport(innerW int) Model {
 		m.preview.viewport.GotoTop()
 		m.preview.lastCmd = cmd
 	}
+	m.preview.activeProfileName = activeProfileNameForPreview(m)
 	fr := m.preview.viewport.Style.GetHorizontalFrameSize()
 	textW := innerW - fr
 	if textW < 8 {

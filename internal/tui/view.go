@@ -185,7 +185,11 @@ func (m Model) launchPreviewPaneView() string {
 	if !m.launchPreviewVisible() {
 		return ""
 	}
-	title := m.mainPaneCaptionLine(MainPaneTitleLaunchCommand, m.launchPreviewPaneTitleStyle())
+	titleText := MainPaneTitleLaunchCommand
+	if m.preview.activeProfileName != "" {
+		titleText = MainPaneTitleLaunchCommand + " · " + m.preview.activeProfileName
+	}
+	title := m.mainPaneCaptionLine(titleText, m.launchPreviewPaneTitleStyle())
 	vp := m.preview.viewport.View()
 	var inner string
 	if !m.launchPreviewScrollable() {
