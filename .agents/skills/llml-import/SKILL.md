@@ -1,6 +1,6 @@
 ---
 name: llml-import
-version: 1.4.0
+version: 1.4.1
 description: |
   Import parameter profiles into llml from a URL or local file. Fetches the content,
   uses the portable profile format spec to extract structured profiles, and writes
@@ -239,12 +239,24 @@ print(path)
 Read the existing file (empty `{"version": 2, "models": {}}` if missing). Then merge
 the selected profiles:
 
+Before running the merge, inspect each target model entry for same-name collisions.
+If a selected profile named `default` collides with an existing `default` profile
+whose `args` and `env` are both empty, treat that existing profile as **replaceable**
+rather than a normal duplicate. Collect those candidates and ask once before writing:
+
+> "These target models already have an empty `default` profile. Replace it with the imported `default` profile? [Y/n]"
+
+If the user answers `Y` or presses enter, replace the empty `default` profile in
+place. If the user answers `n`, keep the existing profile and report that the import
+could have replaced the empty default.
+
 Write a Python script that:
 1. Groups selected profiles by their resolved local model key
 2. Strips model-location parameters (env vars and args) that conflict with llml's local-path launch
 3. Expands panel-row args to pre-split tokens (matching llml's `saveModelEntry` storage format)
-4. Merges all groups into model-params.json in one read/write pass, skipping profiles whose name already exists
-5. Writes atomically via temp file + rename
+4. Detects empty existing `default` profiles as replaceable collision targets
+5. Merges all groups into model-params.json in one read/write pass, adding, replacing, or skipping as appropriate
+6. Writes atomically via temp file + rename
 
 ```python
 import json, os, pathlib
@@ -355,6 +367,13 @@ def normalize_key(k):
         return os.path.normpath(k)
     return k
 
+def is_empty_default_profile(profile):
+    return (
+        profile.get('name') == 'default'
+        and not (profile.get('args') or [])
+        and not (profile.get('env') or [])
+    )
+
 # HINT_TO_KEY: {model_hint: raw_local_path} — set by caller from Step 5 answers.
 # new_profiles: all selected profiles, each retaining their 'model_hint' field.
 
@@ -374,14 +393,47 @@ if data.get('models') is None:
     data['models'] = {}
 data['version'] = 2
 
+replace_empty_default = REPLACE_EMPTY_DEFAULT
 results = {}
 for model_key, profiles_for_key in key_to_profiles.items():
     entry = data['models'].get(model_key, {'profiles': [], 'activeIndex': 0})
-    existing_names = {p['name'] for p in entry.get('profiles', [])}
-    added, skipped, filtered_summary = [], [], []
+    profiles = entry.get('profiles', [])
+    existing_names = {p['name'] for p in profiles}
+    added, replaced, skipped, replaceable_skipped, filtered_summary = [], [], [], [], []
     for p in profiles_for_key:
         if p['name'] in existing_names:
-            skipped.append(p['name'])
+            replaced_existing = False
+            if (
+                p['name'] == 'default'
+                and replace_empty_default
+            ):
+                for i, existing in enumerate(profiles):
+                    if is_empty_default_profile(existing):
+                        p, dropped_env, dropped_args = sanitize_profile(p)
+                        if dropped_env or dropped_args:
+                            filtered_summary.append({
+                                'name': p['name'],
+                                'env': dropped_env,
+                                'args': dropped_args,
+                            })
+                        p['args'] = [tok for a in (p.get('args') or []) for tok in expand_arg_line(a)]
+                        if p.get('env') is None:
+                            p['env'] = []
+                        profiles[i] = p
+                        replaced.append(p['name'])
+                        replaced_existing = True
+                        break
+            if replaced_existing:
+                continue
+            if p['name'] == 'default':
+                for existing in profiles:
+                    if is_empty_default_profile(existing):
+                        replaceable_skipped.append(p['name'])
+                        break
+                else:
+                    skipped.append(p['name'])
+            else:
+                skipped.append(p['name'])
             continue
         p, dropped_env, dropped_args = sanitize_profile(p)
         if dropped_env or dropped_args:
@@ -393,12 +445,20 @@ for model_key, profiles_for_key in key_to_profiles.items():
         p['args'] = [tok for a in (p.get('args') or []) for tok in expand_arg_line(a)]
         if p.get('env') is None:
             p['env'] = []
-        entry['profiles'].append(p)
+        profiles.append(p)
         added.append(p['name'])
+        existing_names.add(p['name'])
+    entry['profiles'] = profiles
     if not entry['profiles']:
         entry['profiles'] = [{'name': 'default', 'env': [], 'args': []}]
     data['models'][model_key] = entry
-    results[model_key] = {'added': added, 'skipped': skipped, 'filtered': filtered_summary}
+    results[model_key] = {
+        'added': added,
+        'replaced': replaced,
+        'skipped': skipped,
+        'replaceable_skipped': replaceable_skipped,
+        'filtered': filtered_summary,
+    }
 
 os.makedirs(os.path.dirname(MODEL_PARAMS_PATH), exist_ok=True)
 tmp = MODEL_PARAMS_PATH + '.tmp'
@@ -412,6 +472,8 @@ print(json.dumps({'results': results}))
 Set `HINT_TO_KEY` and `new_profiles` as Python variables before running this block
 (inline in a heredoc script, not via sys.argv, to avoid quoting issues with JSON).
 `new_profiles` must retain each profile's `model_hint` field so the grouping works.
+Set `REPLACE_EMPTY_DEFAULT` to `True` or `False` from the user's answer before
+running the script.
 
 ## Step 7: Report
 
@@ -422,7 +484,9 @@ Imported:
 
 [/path/to/qwen3-35b-a3b.gguf]
   Added (2): "thinking-fast", "thinking-slow"
+  Replaced empty default (1): "default"
   Skipped — name already exists (1): "default"
+  Skipped, but can replace empty default (1): "default"
   Filtered model-location parameters:
     - "thinking-fast": env: LLAMA_CACHE · args: -hf unsloth/Qwen3-...
   (Filtered entries were stripped because llml supplies the model path at launch.)
@@ -433,9 +497,13 @@ Imported:
 Press 'p' in llml to view and activate the imported profiles.
 ```
 
-Omit the "Skipped" line when count is 0. Omit the "Filtered" block when nothing was
-stripped. If every profile for a given key was skipped, suggest renaming them in
-llml's parameter panel (`p`) before re-importing.
+Omit the "Replaced empty default" line when count is 0. Omit the "Skipped" line when
+count is 0. Omit the "Skipped, but can replace empty default" line when count is 0.
+Omit the "Filtered" block when nothing was stripped. If every profile for a given key
+was skipped because the only conflict was an empty existing `default`, explicitly
+suggest re-running the import and choosing replacement. Otherwise, if every profile
+for a given key was skipped, suggest renaming them in llml's parameter panel (`p`)
+before re-importing.
 
 ---
 
