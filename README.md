@@ -28,6 +28,8 @@ Browse local models. Detect the right runtime. Launch with one key.
 - **Named parameter profiles** — save multiple profiles per model (e.g. `fast-laptop`,
   `quality`, `api-8080`), each storing runtime args, env vars, port, and context
   settings. The active profile is always one key away.
+- **Portable profile format** — the shared import/export contract is documented in
+  **`docs/profile-format.md`** and used by the repo-managed `llml-import` agent skill.
 - **One-keystroke launch** — select a model, select a profile, press `R`. The generated
   command is shown before execution and server output streams directly in the TUI.
 - **Persistent status and alert history** — long-running work such as Ollama preloads stays
@@ -194,6 +196,62 @@ Each model path can have **multiple named profiles**. Each profile stores:
 **`R`** / **ctrl+`R`** use the **active** profile (the highlighted row in the `p` profile list is prefixed with **`(active)`** in the name column). Changes persist automatically. **tab** cycles: profile list → env → extra args. On the profile list: **`a`** add profile, **`c`** clone (duplicate) the highlighted profile, **`d`** delete (not the last), **`r`** rename. **`esc`** closes the panel (and **`n`** cancels a delete confirmation).
 
 Profiles are stored in `model-params.json` (see [Storage & Locations](#storage--locations)).
+
+### Agent skill files
+
+This repo keeps the canonical `llml-import` skill in:
+
+- **`.agents/skills/llml-import/SKILL.md`**
+
+That workspace path is already consumed directly by many agentic tools. The repo also
+tracks a Claude workspace compatibility copy at:
+
+- **`.claude/skills/llml-import/SKILL.md`**
+
+Keep the canonical `.agents` file as the source of truth. When you update it, refresh
+the Claude compatibility copy with:
+
+```bash
+./scripts/sync-skill --workspace --tool claude
+```
+
+To install user-level copies for local agent tools, use:
+
+```bash
+./scripts/sync-skill --user --all-detected
+```
+
+### `llml-import` skill
+
+The `llml-import` skill imports launch settings from a URL or local file into `llml`
+parameter profiles.
+
+Typical flow:
+
+1. Make sure your coding agent can see the skill from `.agents/skills/llml-import/`
+   or from a user-level install created by `./scripts/sync-skill`.
+2. Invoke the skill with a source URL or file path, for example:
+
+```text
+/llml-import https://huggingface.co/...
+```
+
+1. Review the extracted profiles, choose which ones to keep, and attach them to one
+   of your local models.
+2. Open `llml`, press `p`, and inspect or activate the imported profiles.
+
+What it imports:
+
+- portable runtime args and env vars for `llama.cpp`, `vLLM`, or Ollama
+- profile names, model hints, and optional one-line descriptions
+
+What it does not keep:
+
+- model-location parameters such as `--model`, `-hf`, `HF_HOME`, or similar path/cache
+  settings, because `llml` supplies the model path itself at launch time
+
+Imported profiles are written into `model-params.json`. The shared portable contract
+used by the skill is documented in `docs/profile-format.md`.
 
 <a id="configuration"></a>
 

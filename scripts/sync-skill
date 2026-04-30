@@ -1,0 +1,365 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SKILL_NAME="llml-import"
+META_FILE=".skill-sync-meta"
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+REPO_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
+SOURCE_DIR="$REPO_ROOT/.agents/skills/$SKILL_NAME"
+SOURCE_REL=".agents/skills/$SKILL_NAME"
+
+workspace=false
+user=false
+status_only=false
+uninstall=false
+force=false
+all_detected=false
+declare -a SELECTED_TOOLS=()
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/sync-skill [options]
+
+Sync the canonical repo skill .agents/skills/llml-import/ into tool-specific
+workspace or user skill directories.
+
+Options:
+  --workspace       Sync workspace-level compatibility copies.
+  --user            Sync user-level installs.
+  --tool TOOL       Limit sync to a specific tool. Repeatable.
+  --all-detected    For user installs, target all detected tools.
+  --status          Show current install status without modifying files.
+  --uninstall       Remove script-managed installs for the selected scope.
+  --force           Overwrite or remove unmanaged targets.
+  -h, --help        Show this help text.
+
+Examples:
+  scripts/sync-skill --status
+  scripts/sync-skill --workspace
+  scripts/sync-skill --user --all-detected
+EOF
+}
+
+log() {
+  printf '%s\n' "$*"
+}
+
+fail() {
+  printf 'error: %s\n' "$*" >&2
+  exit 1
+}
+
+has_tool() {
+  local tool=$1
+  case "$tool" in
+    antigravity|cline|claude|cursor|codex|gemini|copilot|opencode|vscode|windsurf) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+tool_workspace_mode() {
+  local tool=$1
+  case "$tool" in
+    claude|cline) echo "copy" ;;
+    antigravity|cursor|codex|gemini|copilot|opencode|vscode|windsurf) echo "native" ;;
+    *) echo "unsupported" ;;
+  esac
+}
+
+tool_workspace_dir() {
+  local tool=$1
+  case "$tool" in
+    claude) echo "$REPO_ROOT/.claude/skills" ;;
+    cline) echo "$REPO_ROOT/.cline/skills" ;;
+    antigravity|cursor|codex|gemini|copilot|opencode|vscode|windsurf) echo "$REPO_ROOT/.agents/skills" ;;
+    *) return 1 ;;
+  esac
+}
+
+tool_user_dirs() {
+  local tool=$1
+  case "$tool" in
+    antigravity) printf '%s\n' "$HOME/.gemini/antigravity/skills" ;;
+    cline) printf '%s\n' "$HOME/.cline/skills" ;;
+    claude) printf '%s\n' "$HOME/.claude/skills" ;;
+    cursor) printf '%s\n' "$HOME/.cursor/skills" ;;
+    codex) printf '%s\n' "$HOME/.codex/skills" ;;
+    gemini) printf '%s\n' "$HOME/.gemini/skills" ;;
+    copilot) printf '%s\n' "$HOME/.copilot/skills" ;;
+    opencode) printf '%s\n' "$HOME/.config/opencode/skills" ;;
+    vscode)
+      printf '%s\n' "$HOME/.copilot/skills"
+      printf '%s\n' "$HOME/.claude/skills"
+      ;;
+    windsurf) printf '%s\n' "$HOME/.codeium/windsurf/skills" ;;
+    *) return 1 ;;
+  esac
+}
+
+tool_detect_bins() {
+  local tool=$1
+  case "$tool" in
+    antigravity) printf '%s\n' antigravity ;;
+    claude) printf '%s\n' claude ;;
+    codex) printf '%s\n' codex ;;
+    gemini) printf '%s\n' gemini ;;
+    opencode) printf '%s\n' opencode ;;
+    cursor) printf '%s\n' cursor ;;
+    vscode) printf '%s\n' code ;;
+    windsurf) printf '%s\n' windsurf ;;
+    cline|copilot) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+is_tool_detected() {
+  local tool=$1 dir bin
+  while IFS= read -r dir; do
+    [ -n "$dir" ] || continue
+    if [ -d "$dir" ] || [ -d "$(dirname "$dir")" ]; then
+      return 0
+    fi
+  done < <(tool_user_dirs "$tool" 2>/dev/null || true)
+  while IFS= read -r bin; do
+    [ -n "$bin" ] || continue
+    if command -v "$bin" >/dev/null 2>&1; then
+      return 0
+    fi
+  done < <(tool_detect_bins "$tool" 2>/dev/null || true)
+  return 1
+}
+
+is_managed_target() {
+  local dir=$1
+  [ -f "$dir/$META_FILE" ] || return 1
+  grep -Fqx "generated_by=scripts/sync-skill" "$dir/$META_FILE"
+}
+
+is_adoptable_target() {
+  local dir=$1
+  [ -f "$dir/SKILL.md" ] || return 1
+  cmp -s "$SOURCE_DIR/SKILL.md" "$dir/SKILL.md"
+}
+
+is_tracked_workspace_copy() {
+  local tool=$1 scope=$2
+  [ "$scope" = "workspace" ] && [ "$tool" = "claude" ]
+}
+
+write_meta() {
+  local dir=$1 tool=$2 scope=$3
+  cat >"$dir/$META_FILE" <<EOF
+generated_by=scripts/sync-skill
+skill=$SKILL_NAME
+source=$SOURCE_DIR
+tool=$tool
+scope=$scope
+EOF
+}
+
+prepare_target_dir() {
+  local dir=$1
+  if [ -e "$dir" ]; then
+    if is_managed_target "$dir" || is_adoptable_target "$dir"; then
+      rm -rf "$dir"
+    elif $force; then
+      rm -rf "$dir"
+    else
+      fail "refusing to overwrite unmanaged target: $dir (rerun with --force)"
+    fi
+  fi
+  mkdir -p "$dir"
+}
+
+sync_dir() {
+  local tool=$1 scope=$2 base_dir=$3
+  local target_dir="$base_dir/$SKILL_NAME"
+  prepare_target_dir "$target_dir"
+  cp -R "$SOURCE_DIR"/. "$target_dir"/
+  if is_tracked_workspace_copy "$tool" "$scope"; then
+    rm -f "$target_dir/$META_FILE"
+  else
+    write_meta "$target_dir" "$tool" "$scope"
+  fi
+  log "synced $scope $tool -> $target_dir"
+}
+
+remove_target() {
+  local dir=$1 tool=${2:-} scope=${3:-}
+  if [ ! -e "$dir" ]; then
+    log "missing $dir"
+    return 0
+  fi
+  if is_tracked_workspace_copy "$tool" "$scope" && is_adoptable_target "$dir"; then
+    rm -rf "$dir"
+    log "removed $dir"
+    return 0
+  fi
+  if is_managed_target "$dir" || $force; then
+    rm -rf "$dir"
+    log "removed $dir"
+    return 0
+  fi
+  fail "refusing to remove unmanaged target: $dir (rerun with --force)"
+}
+
+status_target() {
+  local label=$1 dir=$2 tool=$3 scope=$4
+  if [ -d "$dir" ]; then
+    if is_tracked_workspace_copy "$tool" "$scope" && is_adoptable_target "$dir"; then
+      log "$label: installed (tracked compatibility copy) at $dir"
+    elif is_managed_target "$dir"; then
+      log "$label: installed (managed) at $dir"
+    elif is_adoptable_target "$dir"; then
+      log "$label: installed (adoptable) at $dir"
+    else
+      log "$label: present (unmanaged) at $dir"
+    fi
+  else
+    log "$label: missing at $dir"
+  fi
+}
+
+detect_tools() {
+  local tool
+  for tool in antigravity cline claude cursor codex gemini copilot opencode vscode windsurf; do
+    if is_tool_detected "$tool"; then
+      printf '%s\n' "$tool"
+    fi
+  done
+}
+
+resolve_user_tools() {
+  local tool
+  if [ "${#SELECTED_TOOLS[@]}" -gt 0 ]; then
+    printf '%s\n' "${SELECTED_TOOLS[@]}"
+    return 0
+  fi
+  if $all_detected || $user; then
+    detect_tools
+  fi
+}
+
+resolve_workspace_tools() {
+  if [ "${#SELECTED_TOOLS[@]}" -gt 0 ]; then
+    printf '%s\n' "${SELECTED_TOOLS[@]}"
+    return 0
+  fi
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --workspace) workspace=true ;;
+    --user) user=true ;;
+    --status) status_only=true ;;
+    --uninstall) uninstall=true ;;
+    --force) force=true ;;
+    --all-detected) all_detected=true ;;
+    --tool)
+      shift
+      [ "$#" -gt 0 ] || fail "--tool requires a value"
+      has_tool "$1" || fail "unknown tool: $1"
+      SELECTED_TOOLS+=("$1")
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      fail "unknown argument: $1"
+      ;;
+  esac
+  shift
+done
+
+[ -d "$SOURCE_DIR" ] || fail "canonical skill source missing: $SOURCE_DIR"
+[ -f "$SOURCE_DIR/SKILL.md" ] || fail "canonical skill file missing: $SOURCE_DIR/SKILL.md"
+
+if ! $workspace && ! $user && ! $status_only; then
+  log "no scope selected"
+  log
+  usage
+  log
+  log "nothing changed. choose at least one explicit scope:"
+  log "  --workspace      sync compatibility copies for workspace-only tools"
+  log "  --user           sync user-level installs"
+  log "  --status         inspect current install state"
+  exit 0
+fi
+
+if $status_only; then
+  log "source: present at $SOURCE_DIR"
+  if $workspace; then
+    local_tool_list=$(resolve_workspace_tools | tr '\n' ' ')
+    for tool in $local_tool_list; do
+      mode=$(tool_workspace_mode "$tool")
+      if [ "$mode" = "copy" ]; then
+        status_target "workspace $tool" "$(tool_workspace_dir "$tool")/$SKILL_NAME" "$tool" workspace
+      else
+        log "workspace $tool: native via $SOURCE_DIR"
+      fi
+    done
+  fi
+  if $user; then
+    user_tool_list=$(resolve_user_tools | tr '\n' ' ')
+    if [ -z "$user_tool_list" ]; then
+      log "user: no detected tools"
+    else
+      for tool in $user_tool_list; do
+        while IFS= read -r dir; do
+          [ -n "$dir" ] || continue
+          status_target "user $tool" "$dir/$SKILL_NAME" "$tool" user
+        done < <(tool_user_dirs "$tool")
+      done
+    fi
+  fi
+  exit 0
+fi
+
+if $workspace; then
+  workspace_tool_list=$(resolve_workspace_tools | tr '\n' ' ')
+  if [ -z "$workspace_tool_list" ]; then
+    log "$SKILL_NAME skill is already available at Workspace/repo scope for many agentic tools at $SOURCE_REL"
+    log
+    log "For tools that use their own folders, you can install with --tool, for example:"
+    log "  Claude: --workspace --tool claude"
+    log "  Cline:  --workspace --tool cline"
+  fi
+  for tool in $workspace_tool_list; do
+    mode=$(tool_workspace_mode "$tool")
+    case "$mode" in
+      copy)
+        target="$(tool_workspace_dir "$tool")/$SKILL_NAME"
+        if $uninstall; then
+          remove_target "$target" "$tool" workspace
+        else
+          sync_dir "$tool" workspace "$(tool_workspace_dir "$tool")"
+        fi
+        ;;
+      native)
+        log "workspace $tool uses native $SOURCE_DIR"
+        ;;
+      *)
+        fail "tool $tool does not support workspace installs"
+        ;;
+    esac
+  done
+fi
+
+if $user; then
+  user_tool_list=$(resolve_user_tools | tr '\n' ' ')
+  if [ -z "$user_tool_list" ]; then
+    fail "no user-level tools selected or detected"
+  fi
+  for tool in $user_tool_list; do
+    while IFS= read -r dir; do
+      [ -n "$dir" ] || continue
+      target="$dir/$SKILL_NAME"
+      if $uninstall; then
+        remove_target "$target" "$tool" user
+      else
+        sync_dir "$tool" user "$dir"
+      fi
+    done < <(tool_user_dirs "$tool")
+  done
+fi

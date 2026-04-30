@@ -26,6 +26,8 @@ internal/
   config/            # TOML persistence ({UserConfigDir}/llml/config.toml): runtime, discovery cache, [[models]]
   models/            # GGUF + safetensors discovery, metadata, runtime detection, formatting; also Ollama API discovery and HF-hub support. Filesystem discovery uses the `modelSource` interface (`ggufSource`, `safetensorsSource`) and Ollama rows are merged from the daemon API.
   tui/               # Bubble Tea model, update, view, styles, keymaps
+.agents/skills/     # Canonical repo-managed agent skills; llml-import lives here
+.claude/skills/     # Tracked Claude compatibility copies for repo-managed skills
 scripts/             # gofmt-check.sh, precommit-docs-fix.sh
 ```
 
@@ -93,6 +95,13 @@ scripts/             # gofmt-check.sh, precommit-docs-fix.sh
 
 **Parameter profiles** (per-model extra env + argv for `llama-server`, `vllm`, and backend-specific launch helpers, edited with **`p`**) are **not** in `config.toml`: they are stored in **`{UserConfigDir}/llml/model-params.json`** (see `internal/tui/model_params.go`). Keys are stable model identities: cleaned filesystem paths for local rows, model IDs for Ollama rows. Each entry has named profiles and `activeIndex` for which profile **`R`** uses. In the `p` modal, **`c`** duplicates the highlighted profile (clone env + args).
 
+**Portable profile format** lives in **`docs/profile-format.md`**. The canonical
+repo-managed `llml-import` skill lives at **`.agents/skills/llml-import/SKILL.md`**.
+Keep that `.agents` file as the source of truth. The tracked Claude workspace copy at
+**`.claude/skills/llml-import/SKILL.md`** must stay byte-for-byte in sync; refresh it
+with **`./scripts/sync-skill --workspace --tool claude`** after editing the canonical
+skill. User-level installs for local agent tools are handled by **`scripts/sync-skill`**.
+
 Set machine-specific env (for example `LLAMA_CPP_PATH`) in `mise.local.toml` (gitignored); keep shared tool/tasks config in `mise.toml`.
 
 ### Tasks (mise)
@@ -134,6 +143,9 @@ The pre-commit hook handles staged files automatically.
   persistence, server command construction, `layoutTable` idempotence (convergence
   test), split-pane focus toggle, launch-preview focus cycle, theme correctness
   (including `TableSelectedBg`), `View()` alt-screen flag, and selected-style background rendering.
+- Unit tests for `scripts/` cover agent-skill sync behavior, including workspace/user
+  install flows and parity between the canonical `.agents` skill and the tracked
+  Claude compatibility copy.
 - Do not mark a feature complete until `mise run check` passes.
 
 ---

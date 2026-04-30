@@ -82,8 +82,11 @@ logs/*
 *.log
 
 # Agents
-.agents/
-.claude/
+.claude/*
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/llml-import/
+!.claude/skills/llml-import/**
 .codex/
 .cursor/
 .gemini/
