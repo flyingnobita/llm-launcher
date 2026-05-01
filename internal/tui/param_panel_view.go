@@ -1,6 +1,9 @@
 package tui
 
 import (
+	"fmt"
+	"strings"
+
 	"charm.land/lipgloss/v2"
 )
 
@@ -80,9 +83,14 @@ func (m Model) renderConfirmBlock(cw int) string {
 	return confirmBox.Width(cw).Render(lipgloss.JoinVertical(lipgloss.Left, confirmRows...))
 }
 
-// renderProfileList appends profile list rows to dst and returns the result.
-func (m Model) renderProfileList(dst []string, maxLine int) []string {
-	dst = append(dst, m.ui.styles.body.Render("  Parameter Profiles"), "")
+func (m Model) renderProfileSection(cw, maxSec int, secBox lipgloss.Style) string {
+	rows := []string{
+		lipgloss.JoinHorizontal(lipgloss.Top,
+			m.ui.styles.body.Render("  "),
+			m.ui.styles.paramSectionHeading.Render(truncateParamLine("Parameter Profiles", maxSec-2)),
+		),
+		"",
+	}
 	for i := range m.params.profiles {
 		name := m.params.profiles[i].Name
 		if name == "" {
@@ -91,7 +99,7 @@ func (m Model) renderProfileList(dst []string, maxLine int) []string {
 		activeRow := i == m.params.profileIndex
 		focused := m.params.focus == paramFocusProfiles && activeRow
 		if focused && m.params.editKind == paramEditProfileName {
-			dst = append(dst, m.params.editInput.View())
+			rows = append(rows, m.params.editInput.View())
 			continue
 		}
 		prefix := "  "
@@ -99,9 +107,9 @@ func (m Model) renderProfileList(dst []string, maxLine int) []string {
 			prefix = "› "
 		}
 		pw := lipgloss.Width(prefix)
-		nameW := maxLine - pw
+		nameW := maxSec - pw
 		if nameW < 8 {
-			nameW = maxLine
+			nameW = maxSec
 		}
 		displayName := name
 		if activeRow {
@@ -111,15 +119,79 @@ func (m Model) renderProfileList(dst []string, maxLine int) []string {
 		if activeRow {
 			nameStyle = m.ui.styles.paramProfileName
 		}
-		dst = append(dst, lipgloss.JoinHorizontal(lipgloss.Top,
+		rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top,
 			m.ui.styles.body.Render(prefix),
 			nameStyle.Render(truncateParamLine(displayName, nameW)),
 		))
 	}
 	if len(m.params.profiles) == 0 {
-		dst = append(dst, m.ui.styles.body.Render("  (none)"))
+		rows = append(rows, m.ui.styles.body.Render("  (none)"))
 	}
-	return dst
+	return secBox.Width(cw).Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
+}
+
+func formatMetadataValue(v string) string {
+	v = truncateParamLine(v, 120)
+	if v == "" {
+		return "unspecified"
+	}
+	return v
+}
+
+func formatMetadataFieldLine(p ParameterProfile, field paramMetadataField) string {
+	label := paramMetadataFieldLabels[field]
+	switch field {
+	case paramMetadataBackend:
+		return fmt.Sprintf("%s: %s", label, formatMetadataValue(p.Backend))
+	case paramMetadataUseCasePrimary:
+		return fmt.Sprintf("%s: %s", label, formatMetadataValue(string(p.UseCase.Primary)))
+	case paramMetadataUseCaseTags:
+		return fmt.Sprintf("%s: %s", label, formatMetadataValue(strings.Join(p.UseCase.Tags, ", ")))
+	case paramMetadataHardwareClass:
+		return fmt.Sprintf("%s: %s", label, formatMetadataValue(string(p.Hardware.Class)))
+	case paramMetadataHardwareGPUCount:
+		return fmt.Sprintf("%s: %s", label, formatMetadataValue(formatOptionalInt(p.Hardware.GPUCount)))
+	case paramMetadataHardwareMinVRAM:
+		return fmt.Sprintf("%s: %s", label, formatMetadataValue(formatOptionalInt(p.Hardware.MinVRAMGB)))
+	case paramMetadataHardwareMaxVRAM:
+		return fmt.Sprintf("%s: %s", label, formatMetadataValue(formatOptionalInt(p.Hardware.MaxVRAMGB)))
+	case paramMetadataHardwareNotes:
+		return fmt.Sprintf("%s: %s", label, formatMetadataValue(p.Hardware.Notes))
+	default:
+		return label + ": unspecified"
+	}
+}
+
+func (m Model) renderMetadataSection(cw, maxSec int, secBox lipgloss.Style) string {
+	rows := []string{
+		lipgloss.JoinHorizontal(lipgloss.Top,
+			m.ui.styles.body.Render("  "),
+			m.ui.styles.paramSectionHeading.Render(truncateParamLine("Profile Metadata", maxSec-2)),
+		),
+		"",
+	}
+	if m.params.profileIndex >= 0 && m.params.profileIndex < len(m.params.profiles) {
+		p := m.params.profiles[m.params.profileIndex]
+		for field := paramMetadataField(0); field < paramMetadataFieldCount; field++ {
+			focused := m.params.focus == paramFocusMetadata && m.params.metadataCursor == int(field)
+			prefix := "  "
+			if focused {
+				prefix = "› "
+			}
+			if focused && m.params.editKind == paramEditMetadataValue {
+				label := paramMetadataFieldLabels[field] + ": "
+				rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top,
+					m.ui.styles.paramDetailContent.Render(prefix+label),
+					m.params.editInput.View(),
+				))
+				continue
+			}
+			rows = append(rows, m.ui.styles.paramDetailContent.Render(prefix+truncateParamLine(formatMetadataFieldLine(p, field), maxSec)))
+		}
+	} else {
+		rows = append(rows, m.ui.styles.paramDetailContent.Render("  unspecified"))
+	}
+	return secBox.Width(cw).Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
 }
 
 // renderDetailSections renders the env-vars and extra-args sections into the section box.
@@ -145,24 +217,38 @@ func (m Model) renderDetailSections(cw, maxSec int, secBox lipgloss.Style) strin
 
 func (m Model) paramPanelModalBlock() string {
 	cw := m.paramPanelContentWidth()
-	maxLine := max(cw, 24)
-	secBox := m.ui.styles.paramSectionBox
+	panelBox := m.ui.styles.paramPanelBox
+	profilesBox := m.ui.styles.paramSectionBox
+	metaBox := m.ui.styles.paramSectionBox
+	detailBox := m.ui.styles.paramSectionBox
+	if m.params.focus == paramFocusProfiles {
+		profilesBox = m.ui.styles.paramSectionBoxFocused
+	}
+	if m.params.focus == paramFocusMetadata {
+		metaBox = m.ui.styles.paramSectionBoxFocused
+	}
 	if m.params.focus == paramFocusEnv || m.params.focus == paramFocusArgs {
-		secBox = m.ui.styles.paramSectionBoxFocused
+		detailBox = m.ui.styles.paramSectionBoxFocused
 	}
-	maxSec := max(cw-secBox.GetHorizontalFrameSize(), 24)
+	maxSec := max(cw-detailBox.GetHorizontalFrameSize(), 24)
 
-	rows := []string{m.modalTitleRow(cw, m.ui.styles.portConfigTitle, "Parameter Profiles — "+m.params.modelDisplayName), ""}
+	rows := []string{m.modalTitleRow(cw, m.ui.styles.portConfigTitle, "Parameter Profiles — "+m.params.modelDisplayName)}
 	if block := m.renderConfirmBlock(cw); block != "" {
-		rows = append(rows, block, "")
+		rows = append(rows, "", block)
 	}
-	rows = m.renderProfileList(rows, maxLine)
-	rows = append(rows, "", m.renderDetailSections(cw, maxSec, secBox))
+	rows = append(rows,
+		"",
+		m.renderProfileSection(cw, max(cw-profilesBox.GetHorizontalFrameSize(), 24), profilesBox),
+		m.renderMetadataSection(cw, max(cw-metaBox.GetHorizontalFrameSize(), 24), metaBox),
+		m.renderDetailSections(cw, maxSec, detailBox),
+	)
 
 	var footerHelp string
 	switch m.params.focus {
 	case paramFocusProfiles:
 		footerHelp = FooterParamFooterProfiles
+	case paramFocusMetadata:
+		footerHelp = FooterParamFooterMetadata
 	case paramFocusEnv:
 		if m.paramEnvLen() == 0 {
 			footerHelp = FooterParamFooterDetailEmpty
@@ -177,11 +263,11 @@ func (m Model) paramPanelModalBlock() string {
 		}
 	}
 	if m.params.confirmDelete == paramConfirmNone {
-		rows = append(rows, "", m.ui.styles.footer.Render(footerHelp))
+		rows = append(rows, m.ui.styles.footer.Render(footerHelp))
 	}
 	block := lipgloss.JoinVertical(lipgloss.Left, rows...)
 	if m.lastRunNote != "" {
 		block = lipgloss.JoinVertical(lipgloss.Left, block, "", m.lastRunNoteView())
 	}
-	return m.ui.styles.portConfigBox.Render(block)
+	return panelBox.Render(block)
 }

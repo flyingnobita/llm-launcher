@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/flyingnobita/llml/internal/models"
+	"github.com/flyingnobita/llml/internal/profiles"
 )
 
 func (ps *paramsState) syncCurrentProfileOut() {
@@ -15,6 +16,7 @@ func (ps *paramsState) syncCurrentProfileOut() {
 	}
 	ps.profiles[ps.profileIndex].Env = append([]EnvVar(nil), ps.env...)
 	ps.profiles[ps.profileIndex].Args = flattenArgLines(ps.args)
+	ps.profiles[ps.profileIndex] = profiles.NormalizeProfile(ps.profiles[ps.profileIndex])
 }
 
 func (ps *paramsState) loadCurrentProfileIn() {
@@ -76,6 +78,23 @@ func (m Model) commitParamLineEdit() Model {
 	case paramEditArgLine:
 		if m.params.argsCursor >= 0 && m.params.argsCursor < m.paramArgsLen() {
 			m.params.args[m.params.argsCursor] = models.ExpandTildePath(strings.TrimSpace(line))
+		}
+	case paramEditMetadataValue:
+		if m.params.profileIndex >= 0 && m.params.profileIndex < len(m.params.profiles) {
+			p := m.params.profiles[m.params.profileIndex]
+			switch paramMetadataField(m.params.metadataCursor) {
+			case paramMetadataUseCaseTags:
+				p.UseCase.Tags = profiles.NormalizeTagsCSV(line)
+			case paramMetadataHardwareGPUCount:
+				p.Hardware.GPUCount = profiles.ParseOptionalPositiveInt(line)
+			case paramMetadataHardwareMinVRAM:
+				p.Hardware.MinVRAMGB = profiles.ParseOptionalPositiveInt(line)
+			case paramMetadataHardwareMaxVRAM:
+				p.Hardware.MaxVRAMGB = profiles.ParseOptionalPositiveInt(line)
+			case paramMetadataHardwareNotes:
+				p.Hardware.Notes = strings.TrimSpace(line)
+			}
+			m.params.profiles[m.params.profileIndex] = profiles.NormalizeProfile(p)
 		}
 	}
 	m.params.editInput.SetValue("")
@@ -167,6 +186,7 @@ func (m Model) addProfile() Model {
 	nm := nextProfileName(m.params.profiles)
 	m.params.profiles = append(m.params.profiles, ParameterProfile{Name: nm, Env: nil, Args: nil})
 	m.params.profileIndex = len(m.params.profiles) - 1
+	m.params.metadataCursor = 0
 	m.params.loadCurrentProfileIn()
 	m.params.envCursor = 0
 	m.params.argsCursor = 0
@@ -180,14 +200,12 @@ func (m Model) duplicateProfile() Model {
 	}
 	p := m.params.profiles[m.params.profileIndex]
 	nm := cloneProfileName(p.Name, m.params.profiles)
-	clone := ParameterProfile{
-		Name: nm,
-		Env:  append([]EnvVar(nil), p.Env...),
-		Args: append([]string(nil), p.Args...),
-	}
+	clone := profiles.CopyProfile(p)
+	clone.Name = nm
 	i := m.params.profileIndex
 	m.params.profiles = append(m.params.profiles[:i+1], append([]ParameterProfile{clone}, m.params.profiles[i+1:]...)...)
 	m.params.profileIndex = i + 1
+	m.params.metadataCursor = 0
 	m.params.loadCurrentProfileIn()
 	m.params.envCursor = 0
 	m.params.argsCursor = 0
@@ -203,6 +221,7 @@ func (m Model) deleteProfile() Model {
 	if m.params.profileIndex >= len(m.params.profiles) {
 		m.params.profileIndex = len(m.params.profiles) - 1
 	}
+	m.params.metadataCursor = 0
 	m.params.loadCurrentProfileIn()
 	m.params.envCursor = 0
 	m.params.argsCursor = 0
@@ -211,7 +230,25 @@ func (m Model) deleteProfile() Model {
 
 func (m Model) cycleParamFocus(delta int) Model {
 	m.params.syncCurrentProfileOut()
-	m.params.focus = paramFocus((int(m.params.focus) + delta + 3) % 3)
+	if delta >= 0 {
+		switch m.params.focus {
+		case paramFocusProfiles:
+			m.params.focus = paramFocusMetadata
+		case paramFocusMetadata:
+			m.params.focus = paramFocusEnv
+		case paramFocusEnv, paramFocusArgs:
+			m.params.focus = paramFocusProfiles
+		}
+		return m
+	}
+	switch m.params.focus {
+	case paramFocusProfiles:
+		m.params.focus = paramFocusEnv
+	case paramFocusMetadata:
+		m.params.focus = paramFocusProfiles
+	case paramFocusEnv, paramFocusArgs:
+		m.params.focus = paramFocusMetadata
+	}
 	return m
 }
 
@@ -226,6 +263,7 @@ func (m Model) moveProfile(delta int) Model {
 		return m
 	}
 	m.params.profileIndex = next
+	m.params.metadataCursor = 0
 	m.params.loadCurrentProfileIn()
 	m.params.envCursor = 0
 	m.params.argsCursor = 0
@@ -265,16 +303,38 @@ func (m Model) moveParamCursor(delta int) (Model, tea.Cmd) {
 	case paramFocusProfiles:
 		m = m.moveProfile(delta)
 		return m.persistParamPanel()
+	case paramFocusMetadata:
+		m.params.metadataCursor = clampInt(m.params.metadataCursor+delta, 0, int(paramMetadataFieldCount)-1)
 	case paramFocusEnv:
 		n := m.paramEnvLen()
-		if n > 0 {
-			m.params.envCursor = clampInt(m.params.envCursor+delta, 0, n-1)
+		if n == 0 {
+			if delta > 0 && m.paramArgsLen() > 0 {
+				m.params.focus = paramFocusArgs
+				m.params.argsCursor = 0
+			}
+			break
 		}
+		if delta > 0 && m.params.envCursor >= n-1 && m.paramArgsLen() > 0 {
+			m.params.focus = paramFocusArgs
+			m.params.argsCursor = 0
+			break
+		}
+		m.params.envCursor = clampInt(m.params.envCursor+delta, 0, n-1)
 	case paramFocusArgs:
 		n := m.paramArgsLen()
-		if n > 0 {
-			m.params.argsCursor = clampInt(m.params.argsCursor+delta, 0, n-1)
+		if n == 0 {
+			if delta < 0 && m.paramEnvLen() > 0 {
+				m.params.focus = paramFocusEnv
+				m.params.envCursor = m.paramEnvLen() - 1
+			}
+			break
 		}
+		if delta < 0 && m.params.argsCursor <= 0 && m.paramEnvLen() > 0 {
+			m.params.focus = paramFocusEnv
+			m.params.envCursor = m.paramEnvLen() - 1
+			break
+		}
+		m.params.argsCursor = clampInt(m.params.argsCursor+delta, 0, n-1)
 	}
 	return m, nil
 }
@@ -309,14 +369,8 @@ func (m Model) handleEditKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case "enter":
 		m = m.commitParamLineEdit()
 		return m.persistParamPanel()
-	case "tab":
-		m = m.commitParamLineEdit()
-		m = m.cycleParamFocus(1)
-		return m.persistParamPanel()
-	case "shift+tab":
-		m = m.commitParamLineEdit()
-		m = m.cycleParamFocus(-1)
-		return m.persistParamPanel()
+	case "tab", "shift+tab":
+		return m, nil
 	default:
 		var cmd tea.Cmd
 		m.params.editInput, cmd = m.params.editInput.Update(msg)
@@ -341,6 +395,22 @@ func (m Model) handleNavKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.moveParamCursor(-1)
 	case "down", "j":
 		return m.moveParamCursor(1)
+	case "left", "h":
+		if m.params.focus == paramFocusMetadata {
+			switch paramMetadataField(m.params.metadataCursor) {
+			case paramMetadataBackend, paramMetadataUseCasePrimary, paramMetadataHardwareClass:
+				return m.cycleMetadataEnum(-1)
+			}
+		}
+		return m, nil
+	case "right", "l":
+		if m.params.focus == paramFocusMetadata {
+			switch paramMetadataField(m.params.metadataCursor) {
+			case paramMetadataBackend, paramMetadataUseCasePrimary, paramMetadataHardwareClass:
+				return m.cycleMetadataEnum(1)
+			}
+		}
+		return m, nil
 	case "c":
 		if m.params.focus == paramFocusProfiles {
 			m = m.duplicateProfile()
@@ -387,6 +457,9 @@ func (m Model) handleNavKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		}
 		return m, nil
 	case "enter":
+		if m.params.focus == paramFocusMetadata {
+			return m.startMetadataValueEdit()
+		}
 		if m.params.focus == paramFocusEnv || m.params.focus == paramFocusArgs {
 			return m.startParamLineEdit()
 		}

@@ -26,7 +26,7 @@ func helpSections() []struct {
 				{"↓/j", "Move down"},
 				{"←/h", "Scroll left"},
 				{"→/l", "Scroll right"},
-				{"tab", "Switch sections"},
+				{"tab", "Section"},
 			},
 		},
 		{

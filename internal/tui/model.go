@@ -61,6 +61,7 @@ type paramsState struct {
 	focus            paramFocus
 	profileIndex     int
 	profiles         []ParameterProfile
+	metadataCursor   int
 	envCursor        int
 	argsCursor       int
 	env              []EnvVar

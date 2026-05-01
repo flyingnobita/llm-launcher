@@ -9,12 +9,14 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/flyingnobita/llml/internal/models"
+	profilepkg "github.com/flyingnobita/llml/internal/profiles"
 )
 
 type paramFocus int
 
 const (
 	paramFocusProfiles paramFocus = iota
+	paramFocusMetadata
 	paramFocusEnv
 	paramFocusArgs
 )
@@ -36,7 +38,52 @@ const (
 	paramEditEnvLine
 	paramEditArgLine
 	paramEditProfileName
+	paramEditMetadataValue
 )
+
+type paramMetadataField int
+
+const (
+	paramMetadataBackend paramMetadataField = iota
+	paramMetadataUseCasePrimary
+	paramMetadataUseCaseTags
+	paramMetadataHardwareClass
+	paramMetadataHardwareGPUCount
+	paramMetadataHardwareMinVRAM
+	paramMetadataHardwareMaxVRAM
+	paramMetadataHardwareNotes
+	paramMetadataFieldCount
+)
+
+var paramMetadataFieldLabels = [...]string{
+	"Backend",
+	"Use Case Primary",
+	"Use Case Tags",
+	"Hardware Class",
+	"Hardware GPU Count",
+	"Hardware Min VRAM GB",
+	"Hardware Max VRAM GB",
+	"Hardware Notes",
+}
+
+var paramBackendOptions = []string{"", "llama", "vllm", "ollama"}
+
+var paramUseCasePrimaryOptions = []profilepkg.UseCasePrimary{
+	profilepkg.UseCaseUnspecified,
+	profilepkg.UseCaseChat,
+	profilepkg.UseCaseCompletion,
+	profilepkg.UseCaseToolCalling,
+	profilepkg.UseCaseEmbedding,
+	profilepkg.UseCaseEval,
+	profilepkg.UseCaseBatch,
+}
+
+var paramHardwareClassOptions = []profilepkg.HardwareClass{
+	profilepkg.HardwareClassUnspecified,
+	profilepkg.HardwareClassCPU,
+	profilepkg.HardwareClassGPU,
+	profilepkg.HardwareClassMixed,
+}
 
 func newParamLineTextInput() textinput.Model {
 	ti := textinput.New()
@@ -70,58 +117,20 @@ func formatEnvVar(e EnvVar) string {
 }
 
 func profileNameTaken(profiles []ParameterProfile, name string, skip int) bool {
-	n := strings.TrimSpace(name)
-	for i, p := range profiles {
-		if i == skip {
-			continue
-		}
-		if strings.TrimSpace(p.Name) == n {
-			return true
-		}
-	}
-	return false
+	return profilepkg.ProfileNameTaken(profiles, name, skip)
 }
 
 func nextProfileName(profiles []ParameterProfile) string {
-	for n := 1; n < 1000; n++ {
-		cand := "Parameter Profile"
-		if n > 1 {
-			cand = fmt.Sprintf("Parameter Profile %d", n)
-		}
-		if !profileNameTaken(profiles, cand, -1) {
-			return cand
-		}
-	}
-	return "Parameter Profile"
+	return profilepkg.NextProfileName(profiles)
 }
 
 // cloneProfileName picks a unique profile name derived from base (e.g. "foo copy", "foo copy 2").
 func cloneProfileName(base string, profiles []ParameterProfile) string {
-	b := strings.TrimSpace(base)
-	if b == "" {
-		return nextProfileName(profiles)
-	}
-	cand := b + " copy"
-	if !profileNameTaken(profiles, cand, -1) {
-		return cand
-	}
-	for n := 2; n < 1000; n++ {
-		cand = fmt.Sprintf("%s copy %d", b, n)
-		if !profileNameTaken(profiles, cand, -1) {
-			return cand
-		}
-	}
-	return nextProfileName(profiles)
+	return profilepkg.CloneProfileName(base, profiles)
 }
 
 func copyProfiles(in []ParameterProfile) []ParameterProfile {
-	out := make([]ParameterProfile, len(in))
-	for i := range in {
-		out[i].Name = in[i].Name
-		out[i].Env = append([]EnvVar(nil), in[i].Env...)
-		out[i].Args = append([]string(nil), in[i].Args...)
-	}
-	return out
+	return profilepkg.CopyProfiles(in)
 }
 
 func (m Model) openParamPanel() (Model, tea.Cmd) {
@@ -152,6 +161,7 @@ func (m Model) openParamPanel() (Model, tea.Cmd) {
 	}
 	m.params.profiles = copyProfiles(ent.Profiles)
 	m.params.profileIndex = clampInt(ent.ActiveIndex, 0, max(0, len(m.params.profiles)-1))
+	m.params.metadataCursor = 0
 	m.params.focus = paramFocusProfiles
 	m.params.loadCurrentProfileIn()
 	m.params.editInput.SetWidth(m.paramEditInnerWidth())
@@ -180,6 +190,7 @@ func (m Model) closeParamPanel() Model {
 	m.params.profiles = nil
 	m.params.modelPath = ""
 	m.params.modelDisplayName = ""
+	m.params.metadataCursor = 0
 	return m.restoreMainPaneFocusAfterModal()
 }
 
@@ -208,9 +219,127 @@ func (m Model) blurParamEdit() Model {
 	return m
 }
 
+func formatOptionalInt(v *int) string {
+	if v == nil {
+		return ""
+	}
+	return fmt.Sprintf("%d", *v)
+}
+
 func (m Model) paramEnvLen() int { return len(m.params.env) }
 func (m Model) paramArgsLen() int {
 	return len(m.params.args)
+}
+
+func (m Model) metadataFieldValue(field paramMetadataField) string {
+	if m.params.profileIndex < 0 || m.params.profileIndex >= len(m.params.profiles) {
+		return ""
+	}
+	p := m.params.profiles[m.params.profileIndex]
+	switch field {
+	case paramMetadataBackend:
+		return p.Backend
+	case paramMetadataUseCasePrimary:
+		return string(p.UseCase.Primary)
+	case paramMetadataUseCaseTags:
+		return strings.Join(p.UseCase.Tags, ", ")
+	case paramMetadataHardwareClass:
+		return string(p.Hardware.Class)
+	case paramMetadataHardwareGPUCount:
+		return formatOptionalInt(p.Hardware.GPUCount)
+	case paramMetadataHardwareMinVRAM:
+		return formatOptionalInt(p.Hardware.MinVRAMGB)
+	case paramMetadataHardwareMaxVRAM:
+		return formatOptionalInt(p.Hardware.MaxVRAMGB)
+	case paramMetadataHardwareNotes:
+		return p.Hardware.Notes
+	default:
+		return ""
+	}
+}
+
+func (m Model) startMetadataValueEdit() (Model, tea.Cmd) {
+	if m.params.focus != paramFocusMetadata || m.params.profileIndex < 0 || m.params.profileIndex >= len(m.params.profiles) {
+		return m, nil
+	}
+	switch paramMetadataField(m.params.metadataCursor) {
+	case paramMetadataBackend, paramMetadataUseCasePrimary, paramMetadataHardwareClass:
+		return m.cycleMetadataEnum(1)
+	default:
+		m.params.editKind = paramEditMetadataValue
+		m.params.editInput.SetValue(m.metadataFieldValue(paramMetadataField(m.params.metadataCursor)))
+		return m.focusParamEdit()
+	}
+}
+
+func cycleStringOption(options []string, current string, delta int) string {
+	if len(options) == 0 {
+		return current
+	}
+	cur := -1
+	for i := range options {
+		if options[i] == current {
+			cur = i
+			break
+		}
+	}
+	if cur < 0 {
+		cur = 0
+	}
+	return options[(cur+delta+len(options))%len(options)]
+}
+
+func cycleUseCaseOption(options []profilepkg.UseCasePrimary, current profilepkg.UseCasePrimary, delta int) profilepkg.UseCasePrimary {
+	if len(options) == 0 {
+		return current
+	}
+	cur := -1
+	for i := range options {
+		if options[i] == current {
+			cur = i
+			break
+		}
+	}
+	if cur < 0 {
+		cur = 0
+	}
+	return options[(cur+delta+len(options))%len(options)]
+}
+
+func cycleHardwareClassOption(options []profilepkg.HardwareClass, current profilepkg.HardwareClass, delta int) profilepkg.HardwareClass {
+	if len(options) == 0 {
+		return current
+	}
+	cur := -1
+	for i := range options {
+		if options[i] == current {
+			cur = i
+			break
+		}
+	}
+	if cur < 0 {
+		cur = 0
+	}
+	return options[(cur+delta+len(options))%len(options)]
+}
+
+func (m Model) cycleMetadataEnum(delta int) (Model, tea.Cmd) {
+	if m.params.focus != paramFocusMetadata || m.params.profileIndex < 0 || m.params.profileIndex >= len(m.params.profiles) {
+		return m, nil
+	}
+	p := m.params.profiles[m.params.profileIndex]
+	switch paramMetadataField(m.params.metadataCursor) {
+	case paramMetadataBackend:
+		p.Backend = cycleStringOption(paramBackendOptions, p.Backend, delta)
+	case paramMetadataUseCasePrimary:
+		p.UseCase.Primary = cycleUseCaseOption(paramUseCasePrimaryOptions, p.UseCase.Primary, delta)
+	case paramMetadataHardwareClass:
+		p.Hardware.Class = cycleHardwareClassOption(paramHardwareClassOptions, p.Hardware.Class, delta)
+	default:
+		return m, nil
+	}
+	m.params.profiles[m.params.profileIndex] = profilepkg.NormalizeProfile(p)
+	return m.persistParamPanel()
 }
 
 func truncateParamLine(s string, maxW int) string {

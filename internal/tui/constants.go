@@ -184,7 +184,7 @@ const (
 
 	// FooterHintTabSections is the shared "tab: sections" fragment used by split-pane
 	// and parameter modal footers.
-	FooterHintTabSections = "tab: sections"
+	FooterHintTabSections = "tab: section"
 	FooterParamConfirmYN  = "y: yes · n: no"
 
 	// Alphabetical by name; footer lines use the same middle action order where modes
@@ -199,8 +199,10 @@ const (
 	FooterParamHintEnterEdit    = "enter: edit"
 	FooterParamHintClone        = "c: clone"
 	FooterParamHintRename       = "r: rename"
+	FooterParamHintCycle        = "←/→: cycle"
 
 	FooterParamFooterProfiles    = FooterHintTabSections + FooterHintSep + FooterNavHint + FooterHintSep + FooterParamHintAdd + FooterHintSep + FooterParamHintClone + FooterHintSep + FooterParamHintDelete + FooterHintSep + FooterParamHintRename + FooterHintSep + FooterParamHintBack
+	FooterParamFooterMetadata    = FooterHintTabSections + FooterHintSep + FooterNavHint + FooterHintSep + FooterParamHintCycle + FooterHintSep + FooterParamHintEnterEdit + FooterHintSep + FooterParamHintBack
 	FooterParamFooterDetailEmpty = FooterHintTabSections + FooterHintSep + FooterNavHint + FooterHintSep + FooterParamHintAdd + FooterHintSep + FooterParamHintDelete + FooterHintSep + FooterParamHintBack
 	FooterParamFooterDetailRows  = FooterHintTabSections + FooterHintSep + FooterNavHint + FooterHintSep + FooterParamHintAdd + FooterHintSep + FooterParamHintDelete + FooterHintSep + FooterParamHintEnterEdit + FooterHintSep + FooterParamHintBack
 )

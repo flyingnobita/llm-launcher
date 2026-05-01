@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 Format: `- MMM-DD, YYYY - HH:MM AM/PM TIMEZONE - [Concise summary]`
 
 - Apr-30, 2026 - 10:55 PM +0800 - [Skills: `llml-import` now detects empty existing `default` profiles, offers replacement during import, and reports replaceable-vs-duplicate collisions clearly]
+- May-01, 2026 - 09:51 PM +0800 - [TUI: Parameter Profiles gains structured profile metadata editing, clearer section focus, tighter modal spacing, and tab navigation that no longer jumps between env and args while editing]
 - Apr-22, 2026 - 01:17 PM +0800 - [v0.2.8 release: package-manager distribution via Homebrew tap, Scoop bucket, and Winget catalog submission flow]
 - Apr-22, 2026 - 01:17 PM +0800 - [Packaging: document Scoop custom-bucket install path and Winget public-catalog install path; configure GoReleaser Winget publisher to open PRs from `flyingnobita/winget-pkgs` into `microsoft/winget-pkgs`; align package descriptions with Ollama support]
 - Apr-22, 2026 - 12:22 PM +08 - [Packaging: switch Homebrew publishing target from `flyingnobita/homebrew-llml` to generic tap repo `flyingnobita/homebrew-tap`; install command is now `brew tap flyingnobita/tap`]

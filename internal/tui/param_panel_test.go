@@ -8,6 +8,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/flyingnobita/llml/internal/models"
+	"github.com/flyingnobita/llml/internal/profiles"
 )
 
 func TestParseEnvLine_expandTilde(t *testing.T) {
@@ -35,7 +36,14 @@ func TestParamPanelCloneProfile(t *testing.T) {
 	m.params.open = true
 	m.params.focus = paramFocusProfiles
 	m.params.profiles = []ParameterProfile{
-		{Name: "cuda", Env: []EnvVar{{Key: "FOO", Value: "bar"}}, Args: []string{"--x"}},
+		{
+			Name:     "cuda",
+			Backend:  "vllm",
+			UseCase:  profiles.UseCaseMetadata{Primary: profiles.UseCaseChat, Tags: []string{"interactive"}},
+			Hardware: profiles.HardwareMetadata{Class: profiles.HardwareClassGPU},
+			Env:      []EnvVar{{Key: "FOO", Value: "bar"}},
+			Args:     []string{"--x"},
+		},
 		{Name: "cpu"},
 	}
 	m.params.profileIndex = 0
@@ -57,6 +65,9 @@ func TestParamPanelCloneProfile(t *testing.T) {
 	}
 	if len(clone.Args) != 1 || clone.Args[0] != "--x" {
 		t.Fatalf("clone args: %+v", clone.Args)
+	}
+	if clone.Backend != "vllm" || clone.UseCase.Primary != profiles.UseCaseChat || clone.Hardware.Class != profiles.HardwareClassGPU {
+		t.Fatalf("clone metadata: %+v", clone)
 	}
 	if m.params.profiles[0].Name != "cuda" {
 		t.Fatal("original profile name changed")
@@ -182,6 +193,71 @@ func TestCommitParamLineEdit_blankArgRemovesNewEmptyRow(t *testing.T) {
 	}
 }
 
+func TestParamPanelEditTabDoesNotSwitchSections(t *testing.T) {
+	m := New()
+	m.params.open = true
+	m.params.focus = paramFocusEnv
+	m.params.editKind = paramEditEnvLine
+	m.params.env = []EnvVar{{Key: "K", Value: "V"}}
+	m.params.envCursor = 0
+	m.params.editInput.SetValue("K=V")
+
+	m, _ = m.updateParamPanelKey(tea.KeyPressMsg{Code: tea.KeyTab, Text: "tab"})
+	if m.params.focus != paramFocusEnv {
+		t.Fatalf("tab changed focus during edit: got %v", m.params.focus)
+	}
+	if m.params.editKind != paramEditEnvLine {
+		t.Fatalf("tab ended edit: got %v", m.params.editKind)
+	}
+
+	m, _ = m.updateParamPanelKey(tea.KeyPressMsg{Text: "shift+tab"})
+	if m.params.focus != paramFocusEnv {
+		t.Fatalf("shift+tab changed focus during edit: got %v", m.params.focus)
+	}
+	if m.params.editKind != paramEditEnvLine {
+		t.Fatalf("shift+tab ended edit: got %v", m.params.editKind)
+	}
+}
+
+func TestParamPanelIdleTabSkipsArgsAsSeparateSection(t *testing.T) {
+	m := New()
+	m.params.open = true
+	m.params.focus = paramFocusEnv
+	m.params.env = []EnvVar{{Key: "K", Value: "V"}}
+	m.params.args = []string{"--ctx-size 4096"}
+
+	m, _ = m.updateParamPanelKey(tea.KeyPressMsg{Code: tea.KeyTab, Text: "tab"})
+	if m.params.focus != paramFocusProfiles {
+		t.Fatalf("tab from env focus should wrap to profiles, got %v", m.params.focus)
+	}
+
+	m.params.focus = paramFocusArgs
+	m, _ = m.updateParamPanelKey(tea.KeyPressMsg{Text: "shift+tab"})
+	if m.params.focus != paramFocusMetadata {
+		t.Fatalf("shift+tab from args focus should go to metadata, got %v", m.params.focus)
+	}
+}
+
+func TestParamPanelCursorCrossesBetweenEnvAndArgs(t *testing.T) {
+	m := New()
+	m.params.open = true
+	m.params.focus = paramFocusEnv
+	m.params.env = []EnvVar{{Key: "K", Value: "V"}}
+	m.params.args = []string{"--ctx-size 4096", "--threads 8"}
+	m.params.envCursor = 0
+
+	m, _ = m.moveParamCursor(1)
+	if m.params.focus != paramFocusArgs || m.params.argsCursor != 0 {
+		t.Fatalf("down from last env row should enter args, got focus=%v argsCursor=%d", m.params.focus, m.params.argsCursor)
+	}
+
+	m.params.argsCursor = 0
+	m, _ = m.moveParamCursor(-1)
+	if m.params.focus != paramFocusEnv || m.params.envCursor != 0 {
+		t.Fatalf("up from first arg row should return to env, got focus=%v envCursor=%d", m.params.focus, m.params.envCursor)
+	}
+}
+
 func TestParamPanelViewIncludesMainAppBackdrop(t *testing.T) {
 	m := New()
 	// Tall terminal so the centered modal does not cover the title row; on 24 lines
@@ -195,7 +271,14 @@ func TestParamPanelViewIncludesMainAppBackdrop(t *testing.T) {
 	m = m.layoutTable()
 	m.params.open = true
 	m.params.modelDisplayName = "test/model"
-	m.params.profiles = []ParameterProfile{{Name: "default"}}
+	m.params.profiles = []ParameterProfile{{
+		Name:    "default",
+		Backend: "vllm",
+		UseCase: profiles.UseCaseMetadata{Primary: profiles.UseCaseChat, Tags: []string{"interactive"}},
+		Hardware: profiles.HardwareMetadata{
+			Class: profiles.HardwareClassGPU,
+		},
+	}}
 
 	bg := m.mainAppPlacedView()
 	if !strings.Contains(bg, "LLM Launcher") {
@@ -210,12 +293,268 @@ func TestParamPanelViewIncludesMainAppBackdrop(t *testing.T) {
 	if !strings.Contains(content, "Parameter Profiles") {
 		t.Fatal("expected parameter profiles modal in view")
 	}
+	if !strings.Contains(content, "Profile Metadata") || !strings.Contains(content, "Backend: vllm") {
+		t.Fatal("expected metadata section in parameters modal")
+	}
 	if !strings.Contains(content, "(active)") {
 		t.Fatal("expected (active) prefix on active profile in parameters modal")
 	}
 	// Main footer remains visible in the backdrop on a tall layout (not covered by the modal).
 	if !strings.Contains(content, FooterHintRunSplit) {
 		t.Fatal("expected main footer in backdrop outside modal")
+	}
+}
+
+func TestParamPanelMetadataTracksActiveProfile(t *testing.T) {
+	m := New()
+	m.layout.width = 100
+	m.layout.height = 40
+	m.params.open = true
+	m.params.modelDisplayName = "test/model"
+	m.params.profiles = []ParameterProfile{
+		{
+			Name:    "chat",
+			Backend: "vllm",
+			UseCase: profiles.UseCaseMetadata{Primary: profiles.UseCaseChat, Tags: []string{"interactive"}},
+			Hardware: profiles.HardwareMetadata{
+				Class: profiles.HardwareClassGPU,
+			},
+		},
+		{
+			Name:    "cpu",
+			Backend: "",
+			UseCase: profiles.UseCaseMetadata{},
+			Hardware: profiles.HardwareMetadata{
+				Class: profiles.HardwareClassCPU,
+				Notes: "quiet box",
+			},
+		},
+	}
+	m.params.profileIndex = 0
+	view1 := m.paramPanelModalBlock()
+	if !strings.Contains(view1, "Backend: vllm") || !strings.Contains(view1, "Use Case Primary: chat") || !strings.Contains(view1, "Use Case Tags: interactive") {
+		t.Fatalf("expected active metadata for first profile:\n%s", view1)
+	}
+	m = m.moveProfile(1)
+	view2 := m.paramPanelModalBlock()
+	if !strings.Contains(view2, "Hardware Class: cpu") || !strings.Contains(view2, "Hardware Notes: quiet box") {
+		t.Fatalf("expected hardware for second profile:\n%s", view2)
+	}
+	if !strings.Contains(view2, "Backend: unspecified") || !strings.Contains(view2, "Use Case Primary: unspecified") {
+		t.Fatalf("expected unspecified placeholders:\n%s", view2)
+	}
+}
+
+func TestParamPanelProfilesSectionUsesFocusedChrome(t *testing.T) {
+	m := New()
+	m.layout.width = 100
+	m.layout.height = 40
+	m.params.open = true
+	m.params.profiles = []ParameterProfile{{Name: "default"}}
+	m.params.profileIndex = 0
+	m.params.focus = paramFocusProfiles
+	focused := m.paramPanelModalBlock()
+
+	m.params.focus = paramFocusMetadata
+	unfocused := m.paramPanelModalBlock()
+	if focused == unfocused {
+		t.Fatal("expected profile section rendering to differ when its section is focused")
+	}
+}
+
+func TestParamPanelFooterHintsMarkTabAsIdleOnly(t *testing.T) {
+	if !strings.Contains(FooterParamFooterProfiles, "tab: section") {
+		t.Fatalf("profiles footer hints = %q", FooterParamFooterProfiles)
+	}
+	if !strings.Contains(FooterParamFooterDetailRows, "tab: section") {
+		t.Fatalf("detail footer hints = %q", FooterParamFooterDetailRows)
+	}
+}
+
+func TestHelpPanelDocumentsIdleOnlySectionSwitching(t *testing.T) {
+	m := New()
+	m.layout.width = 100
+	m.layout.height = 40
+	view := m.helpPanelModalBlock()
+	if !strings.Contains(view, "Section") {
+		t.Fatalf("help panel missing section hint:\n%s", view)
+	}
+}
+
+func TestParamPanelMetadataEditViewRendersInput(t *testing.T) {
+	m := New()
+	m.layout.width = 100
+	m.layout.height = 40
+	m.params.open = true
+	m.params.focus = paramFocusMetadata
+	m.params.metadataCursor = int(paramMetadataUseCaseTags)
+	m.params.editKind = paramEditMetadataValue
+	m.params.editInput.SetValue("interactive, low-latency")
+	m.params.modelDisplayName = "test/model"
+	m.params.profiles = []ParameterProfile{{Name: "default"}}
+
+	view := m.paramPanelModalBlock()
+	if !strings.Contains(view, "Use Case Tags: ") {
+		t.Fatalf("expected editable metadata label:\n%s", view)
+	}
+	if !strings.Contains(view, "interactive, low-latency") {
+		t.Fatalf("expected editable metadata value:\n%s", view)
+	}
+}
+
+func TestParamPanelMetadataEditsPersistAndSwitchProfiles(t *testing.T) {
+	cfg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", cfg)
+	t.Setenv("HOME", cfg)
+	t.Setenv("AppData", cfg)
+
+	modelPath := filepath.Join(cfg, "meta-edit.gguf")
+	if err := saveModelEntry(modelPath, modelEntry{
+		Profiles: []ParameterProfile{
+			{Name: "chat"},
+			{Name: "cpu", Backend: "ollama", Hardware: profiles.HardwareMetadata{Class: profiles.HardwareClassCPU}},
+		},
+		ActiveIndex: 0,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	m := New()
+	m.params.open = true
+	m.params.modelPath = filepath.Clean(modelPath)
+	m.params.modelDisplayName = "meta-edit.gguf"
+	ent, err := loadModelEntry(modelPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.params.profiles = copyProfiles(ent.Profiles)
+	m.params.profileIndex = ent.ActiveIndex
+	m.params.focus = paramFocusMetadata
+	m.params.loadCurrentProfileIn()
+
+	m.params.metadataCursor = int(paramMetadataBackend)
+	m, _ = m.updateParamPanelKey(tea.KeyPressMsg{Code: tea.KeyRight, Text: ""})
+	if got := m.params.profiles[0].Backend; got != "llama" {
+		t.Fatalf("backend = %q", got)
+	}
+
+	m.params.metadataCursor = int(paramMetadataUseCasePrimary)
+	m, _ = m.updateParamPanelKey(tea.KeyPressMsg{Code: tea.KeyRight, Text: ""})
+	m, _ = m.updateParamPanelKey(tea.KeyPressMsg{Code: tea.KeyRight, Text: ""})
+	if got := m.params.profiles[0].UseCase.Primary; got != profiles.UseCaseCompletion {
+		t.Fatalf("use case primary = %q", got)
+	}
+
+	m.params.metadataCursor = int(paramMetadataUseCaseTags)
+	m, _ = m.startMetadataValueEdit()
+	m.params.editInput.SetValue(" Interactive, low_latency, interactive ")
+	m = m.commitParamLineEdit()
+	m, _ = m.persistParamPanel()
+	if got := m.params.profiles[0].UseCase.Tags; len(got) != 2 || got[0] != "interactive" || got[1] != "low-latency" {
+		t.Fatalf("tags = %#v", got)
+	}
+
+	m = m.moveProfile(1)
+	if got := m.params.profiles[m.params.profileIndex].Backend; got != "ollama" {
+		t.Fatalf("second profile backend = %q", got)
+	}
+	if got := m.params.profiles[m.params.profileIndex].Hardware.Class; got != profiles.HardwareClassCPU {
+		t.Fatalf("second profile hardware class = %q", got)
+	}
+
+	got, err := loadModelEntry(modelPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Profiles[0].Backend != "llama" {
+		t.Fatalf("saved backend = %q", got.Profiles[0].Backend)
+	}
+	if got.Profiles[0].UseCase.Primary != profiles.UseCaseCompletion {
+		t.Fatalf("saved use case = %q", got.Profiles[0].UseCase.Primary)
+	}
+	if len(got.Profiles[0].UseCase.Tags) != 2 || got.Profiles[0].UseCase.Tags[0] != "interactive" || got.Profiles[0].UseCase.Tags[1] != "low-latency" {
+		t.Fatalf("saved tags = %#v", got.Profiles[0].UseCase.Tags)
+	}
+}
+
+func TestParamPanelHardwareMetadataPersistsAndClears(t *testing.T) {
+	cfg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", cfg)
+	t.Setenv("HOME", cfg)
+	t.Setenv("AppData", cfg)
+
+	modelPath := filepath.Join(cfg, "hardware-edit.gguf")
+	if err := saveModelEntry(modelPath, modelEntry{
+		Profiles:    []ParameterProfile{{Name: "gpu"}},
+		ActiveIndex: 0,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	m := New()
+	m.params.open = true
+	m.params.modelPath = filepath.Clean(modelPath)
+	m.params.modelDisplayName = "hardware-edit.gguf"
+	ent, err := loadModelEntry(modelPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.params.profiles = copyProfiles(ent.Profiles)
+	m.params.focus = paramFocusMetadata
+	m.params.loadCurrentProfileIn()
+
+	m.params.metadataCursor = int(paramMetadataHardwareClass)
+	m, _ = m.updateParamPanelKey(tea.KeyPressMsg{Code: tea.KeyRight, Text: ""})
+	m, _ = m.updateParamPanelKey(tea.KeyPressMsg{Code: tea.KeyRight, Text: ""})
+	if got := m.params.profiles[0].Hardware.Class; got != profiles.HardwareClassGPU {
+		t.Fatalf("hardware class = %q", got)
+	}
+
+	setField := func(field paramMetadataField, value string) {
+		t.Helper()
+		m.params.metadataCursor = int(field)
+		m.params.editKind = paramEditMetadataValue
+		m.params.editInput.SetValue(value)
+		m = m.commitParamLineEdit()
+	}
+	setField(paramMetadataHardwareGPUCount, "2")
+	setField(paramMetadataHardwareMinVRAM, "48")
+	setField(paramMetadataHardwareMaxVRAM, "24")
+	setField(paramMetadataHardwareNotes, "  tested on 4090  ")
+	m, _ = m.persistParamPanel()
+
+	got, err := loadModelEntry(modelPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Profiles[0].Hardware.GPUCount == nil || *got.Profiles[0].Hardware.GPUCount != 2 {
+		t.Fatalf("saved gpu count = %#v", got.Profiles[0].Hardware.GPUCount)
+	}
+	if got.Profiles[0].Hardware.MinVRAMGB == nil || *got.Profiles[0].Hardware.MinVRAMGB != 24 {
+		t.Fatalf("saved min vram = %#v", got.Profiles[0].Hardware.MinVRAMGB)
+	}
+	if got.Profiles[0].Hardware.MaxVRAMGB == nil || *got.Profiles[0].Hardware.MaxVRAMGB != 48 {
+		t.Fatalf("saved max vram = %#v", got.Profiles[0].Hardware.MaxVRAMGB)
+	}
+	if got.Profiles[0].Hardware.Notes != "tested on 4090" {
+		t.Fatalf("saved notes = %q", got.Profiles[0].Hardware.Notes)
+	}
+
+	setField(paramMetadataHardwareGPUCount, "")
+	setField(paramMetadataHardwareMinVRAM, "")
+	setField(paramMetadataHardwareMaxVRAM, "")
+	setField(paramMetadataHardwareNotes, "")
+	m, _ = m.persistParamPanel()
+
+	got, err = loadModelEntry(modelPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Profiles[0].Hardware.GPUCount != nil || got.Profiles[0].Hardware.MinVRAMGB != nil || got.Profiles[0].Hardware.MaxVRAMGB != nil {
+		t.Fatalf("expected cleared numeric hardware fields, got %+v", got.Profiles[0].Hardware)
+	}
+	if got.Profiles[0].Hardware.Notes != "" {
+		t.Fatalf("expected cleared notes, got %q", got.Profiles[0].Hardware.Notes)
 	}
 }
 

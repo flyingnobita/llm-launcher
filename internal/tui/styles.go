@@ -31,6 +31,7 @@ type styles struct {
 	runtimePanel           lipgloss.Style
 	portConfigTitle        lipgloss.Style
 	portConfigBox          lipgloss.Style
+	paramPanelBox          lipgloss.Style
 	paramSectionBox        lipgloss.Style
 	paramSectionBoxFocused lipgloss.Style
 	paramConfirmDialog     lipgloss.Style
@@ -105,6 +106,11 @@ func newStyles(theme Theme) styles {
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(theme.Border).
 			Padding(1, 2).
+			Foreground(theme.ModalBody),
+		paramPanelBox: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(theme.Border).
+			Padding(0, 2).
 			Foreground(theme.ModalBody),
 		// Nested sections inside the parameters modal (env + argv).
 		paramSectionBox: lipgloss.NewStyle().

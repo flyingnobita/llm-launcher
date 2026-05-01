@@ -3,6 +3,8 @@ package tui
 import (
 	"strings"
 	"testing"
+
+	"charm.land/lipgloss/v2"
 )
 
 func TestResolveThemeWithDetector(t *testing.T) {
@@ -84,6 +86,15 @@ func TestParamSectionBoxBorderChangesWhenDetailFocused(t *testing.T) {
 	focused := st.paramSectionBoxFocused.Width(12).Render("x")
 	if plain == focused {
 		t.Fatal("param section focused style should change border rendering vs unfocused")
+	}
+}
+
+func TestParamPanelBoxUsesTighterVerticalPadding(t *testing.T) {
+	st := newStyles(DarkTheme())
+	port := st.portConfigBox.Width(20).Render("x")
+	panel := st.paramPanelBox.Width(20).Render("x")
+	if lipgloss.Height(panel) >= lipgloss.Height(port) {
+		t.Fatalf("expected param panel box to be tighter than generic modal box: panel=%d port=%d", lipgloss.Height(panel), lipgloss.Height(port))
 	}
 }
 
