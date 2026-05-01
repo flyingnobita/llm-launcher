@@ -1,6 +1,6 @@
 ---
 name: llml-import
-version: 1.4.1
+version: 1.5.0
 description: |
   Import parameter profiles into llml from a URL or local file. Fetches the content,
   uses the portable profile format spec to extract structured profiles, and writes
@@ -53,6 +53,7 @@ You are the extraction agent. Using the format spec from Step 2 and the source
 content from Step 3, extract all parameter profiles.
 
 Rules (from the spec's LLM extraction section):
+
 - Extract only parameters that appear explicitly in the source. Do not invent values.
 - Each `--flag value` pair becomes one string in `args` (e.g. `"--n-gpu-layers 80"`).
 - Standalone flags (e.g. `--flash-attn`) are single-element strings.
@@ -61,8 +62,11 @@ Rules (from the spec's LLM extraction section):
 - Set `model_hint` to the model name or family from the source.
 - Derive `name` from the section heading or context (e.g. `"default"`, `"4-bit-gpu"`,
   `"cpu-only"`).
-- Set `description` to one sentence summarizing the profile's purpose and target
-  hardware, if the source provides enough context.
+- When the source supports it, set structured `use_case` metadata:
+  `primary` as one of `chat`, `completion`, `tool-calling`, `embedding`, `eval`,
+  `batch`, plus short lowercase tag strings when they are explicit or well-supported.
+- When the source supports it, set structured `hardware` metadata:
+  `class`, `gpu_count`, `min_vram_gb`, `max_vram_gb`, and `notes`.
 - **Do not extract model-location parameters into the portable profile.** Exclude
   flags and env vars that identify where to load the model from, because llml
   supplies the model path itself. Examples to exclude: `LLAMA_CACHE`, `-hf`,
@@ -136,24 +140,30 @@ in the heredoc). The script outputs `{ hint: {display, path} | null }`.
 Group profiles by `model_hint`, then split into two visually distinct sections based
 on the classification. Assign sequential numbers across all groups. Present as:
 
-```
+```text
 Found N profile(s) across M model variant(s):
 
 ✓  In your system
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [Qwen3-35B-A3B-GGUF]  →  Qwen3-35B-A3B-Q4_K_M.gguf
   1. "thinking-fast" — backend: llama
+     use_case: chat [interactive]
+     hardware: gpu, min_vram_gb=24
      args: [--n-gpu-layers 80, --ctx-size 8192]
   2. "thinking-slow" — backend: llama
+     use_case: batch [throughput]
+     hardware: gpu, gpu_count=2
      args: [--n-gpu-layers 80, --ctx-size 32768]
 
 ✗  Not found in your system
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [Qwen3-8B-GGUF]
   3. "default" — backend: llama
+     use_case: completion
      args: [--n-gpu-layers 80]
 [Qwen3-0.5B-GGUF]
   4. "default" — backend: llama
+     hardware: cpu
      args: [--n-gpu-layers 0]
 ```
 
@@ -251,6 +261,7 @@ place. If the user answers `n`, keep the existing profile and report that the im
 could have replaced the empty default.
 
 Write a Python script that:
+
 1. Groups selected profiles by their resolved local model key
 2. Strips model-location parameters (env vars and args) that conflict with llml's local-path launch
 3. Expands panel-row args to pre-split tokens (matching llml's `saveModelEntry` storage format)
@@ -367,6 +378,116 @@ def normalize_key(k):
         return os.path.normpath(k)
     return k
 
+def normalize_backend(v):
+    s = (v or '').strip().lower()
+    if s in ('', 'unknown'):
+        return ''
+    if s in ('llama', 'llama.cpp'):
+        return 'llama'
+    if s == 'vllm':
+        return 'vllm'
+    if s == 'ollama':
+        return 'ollama'
+    return ''
+
+def normalize_use_case_primary(v):
+    s = (v or '').strip().lower()
+    if s in ('', 'unknown', 'unspecified'):
+        return ''
+    if s in ('chat', 'assistant'):
+        return 'chat'
+    if s in ('completion', 'generate', 'generation'):
+        return 'completion'
+    if s in ('tool-calling', 'tool_calling', 'tools'):
+        return 'tool-calling'
+    if s in ('embedding', 'embeddings'):
+        return 'embedding'
+    if s in ('eval', 'evaluation'):
+        return 'eval'
+    if s in ('batch', 'offline'):
+        return 'batch'
+    return ''
+
+def normalize_tag(v):
+    s = ' '.join((v or '').strip().lower().replace('_', '-').split())
+    return s.replace(' ', '-')
+
+def normalize_tags(values):
+    seen = set()
+    out = []
+    for value in values or []:
+        tag = normalize_tag(value)
+        if not tag or tag in seen:
+            continue
+        seen.add(tag)
+        out.append(tag)
+    return out
+
+def normalize_hardware_class(v):
+    s = (v or '').strip().lower()
+    if s in ('', 'unknown', 'unspecified'):
+        return ''
+    if s in ('cpu', 'cpu-only'):
+        return 'cpu'
+    if s == 'gpu':
+        return 'gpu'
+    if s in ('mixed', 'hybrid'):
+        return 'mixed'
+    return ''
+
+def normalize_positive_int(v):
+    try:
+        n = int(v)
+    except (TypeError, ValueError):
+        return None
+    return n if n > 0 else None
+
+def portable_use_case_to_local(portable):
+    portable = portable or {}
+    primary = normalize_use_case_primary(portable.get('primary'))
+    tags = normalize_tags(portable.get('tags'))
+    if not primary and not tags:
+        return {}
+    return {'primary': primary, 'tags': tags}
+
+def portable_hardware_to_local(portable, legacy_description=''):
+    portable = portable or {}
+    hw_class = normalize_hardware_class(portable.get('class'))
+    gpu_count = normalize_positive_int(portable.get('gpu_count'))
+    min_vram = normalize_positive_int(portable.get('min_vram_gb'))
+    max_vram = normalize_positive_int(portable.get('max_vram_gb'))
+    notes = (portable.get('notes') or legacy_description or '').strip()
+    if min_vram is not None and max_vram is not None and min_vram > max_vram:
+        min_vram, max_vram = max_vram, min_vram
+    if hw_class == 'cpu':
+        gpu_count = None
+        min_vram = None
+        max_vram = None
+    out = {}
+    if hw_class:
+        out['class'] = hw_class
+    if gpu_count is not None:
+        out['gpuCount'] = gpu_count
+    if min_vram is not None:
+        out['minVramGb'] = min_vram
+    if max_vram is not None:
+        out['maxVramGb'] = max_vram
+    if notes:
+        out['notes'] = notes
+    return out
+
+def normalize_portable_profile(p):
+    use_case = portable_use_case_to_local(p.get('use_case'))
+    hardware = portable_hardware_to_local(p.get('hardware'), p.get('description', ''))
+    return {
+        'name': (p.get('name') or '').strip() or 'default',
+        'backend': normalize_backend(p.get('backend')),
+        'useCase': use_case,
+        'hardware': hardware,
+        'env': p.get('env') or [],
+        'args': p.get('args') or [],
+    }
+
 def is_empty_default_profile(profile):
     return (
         profile.get('name') == 'default'
@@ -374,7 +495,7 @@ def is_empty_default_profile(profile):
         and not (profile.get('env') or [])
     )
 
-# HINT_TO_KEY: {model_hint: raw_local_path} — set by caller from Step 5 answers.
+# HINT_TO_KEY: {model_hint: raw_local_path} - set by caller from Step 5 answers.
 # new_profiles: all selected profiles, each retaining their 'model_hint' field.
 
 # Group profiles by their resolved local model key.
@@ -388,10 +509,10 @@ try:
     with open(MODEL_PARAMS_PATH) as f:
         data = json.load(f)
 except FileNotFoundError:
-    data = {'version': 2, 'models': {}}
+    data = {'version': 3, 'models': {}}
 if data.get('models') is None:
     data['models'] = {}
-data['version'] = 2
+data['version'] = 3
 
 replace_empty_default = REPLACE_EMPTY_DEFAULT
 results = {}
@@ -401,6 +522,7 @@ for model_key, profiles_for_key in key_to_profiles.items():
     existing_names = {p['name'] for p in profiles}
     added, replaced, skipped, replaceable_skipped, filtered_summary = [], [], [], [], []
     for p in profiles_for_key:
+        p = normalize_portable_profile(p)
         if p['name'] in existing_names:
             replaced_existing = False
             if (
@@ -479,7 +601,7 @@ running the script.
 
 Show one block per local model key in the results dict:
 
-```
+```text
 Imported:
 
 [/path/to/qwen3-35b-a3b.gguf]
@@ -511,30 +633,39 @@ before re-importing.
 
 If `docs/profile-format.md` is unavailable, use this summary:
 
-The portable profile format is TOML with `schema_version = 1` and a `[[profiles]]`
+The portable profile format is TOML with `schema_version = 2` and a `[[profiles]]`
 array.
 
 Required fields:
-- `schema_version = 1`
+
+- `schema_version = 2`
 - `[[profiles]].name`
 - `[[profiles]].backend` (`llama`, `vllm`, or `ollama`)
 
 Optional fields:
+
 - `model_hint`
-- `description`
 - `args` as panel-row strings, for example `"--ctx-size 4096"`
 - `[[profiles.env]]` as `{key, value}` pairs
+- `[profiles.use_case]` with `primary` and `tags`
+- `[profiles.hardware]` with `class`, `gpu_count`, `min_vram_gb`, `max_vram_gb`, `notes`
 
 Do not include model-location parameters in `args` or `env`. llml supplies the model
-path itself.
+path itself. Portable `use_case` and `hardware` fields map into llml's local
+canonical `useCase` and `hardware` metadata on import.
 
 Example:
+
 ```toml
-schema_version = 1
+schema_version = 2
 
 [[profiles]]
 name = "balanced"
 backend = "llama"
 model_hint = "Llama-3-8B"
 args = ["--n-gpu-layers 80", "--ctx-size 4096"]
+use_case.primary = "chat"
+use_case.tags = ["interactive"]
+hardware.class = "gpu"
+hardware.min_vram_gb = 24
 ```

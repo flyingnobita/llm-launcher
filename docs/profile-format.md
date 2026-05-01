@@ -1,6 +1,6 @@
 # Portable Parameter Profile Format
 
-Date: 2026-04-27
+Date: 2026-05-01
 Status: Proposed
 
 ## Purpose
@@ -8,30 +8,31 @@ Status: Proposed
 This document defines the portable parameter profile format for llml. It serves two
 purposes:
 
-1. **Human documentation** — describes what a shareable profile file looks like and
+1. **Human documentation** - describes what a shareable profile file looks like and
    how to write one by hand.
-2. **Machine prompt context** — an LLM pointed at this document and a source URL
+2. **Machine prompt context** - an LLM pointed at this document and a source URL
    (model card, blog post, README) can extract structured profiles without
    additional instructions.
 
 ## Background
 
 llml stores parameter profiles per model in `{UserConfigDir}/llml/model-params.json`.
-Each profile has a name, a list of environment variables, and a list of command-line
-args. This internal format is not portable — it is keyed by local model path and not
-designed for sharing.
+Each profile has a name, environment variables, command-line args, and structured
+metadata for backend, use case, and hardware expectations. That internal format is
+not portable - it is keyed by local model path and not designed for sharing.
 
 The portable profile format defined here is a separate, self-contained TOML file
-intended for sharing and importing. Import tooling (e.g., the `/llml-import` agent
-skill) reads this format and writes the resulting profiles into `model-params.json`.
+intended for sharing and importing. Import tooling (for example the `/llml-import`
+agent skill) reads this format, maps its metadata into llml's canonical local
+profile schema, and writes the resulting profiles into `model-params.json`.
 
 ## Scope
 
 - Covers llama.cpp, vLLM, and Ollama backends.
 - One file may contain multiple profiles, for multiple backends, targeting one or
   more model families.
-- Cross-backend translation (e.g., converting a llama.cpp profile to an Ollama
-  equivalent) is explicitly out of scope for this format version.
+- Cross-backend translation (for example converting a llama.cpp profile to an
+  Ollama equivalent) is out of scope for this format version.
 
 ## Schema
 
@@ -39,37 +40,76 @@ skill) reads this format and writes the resulting profiles into `model-params.js
 
 | Field            | Type    | Required | Description                   |
 | ---------------- | ------- | -------- | ----------------------------- |
-| `schema_version` | integer | yes      | Must be `1` for this version. |
+| `schema_version` | integer | yes      | Must be `2` for this version. |
 
 ### `[[profiles]]` array
 
 Each entry in `[[profiles]]` is one parameter profile.
 
-| Field         | Type            | Required | Description                                                                                                                                |
-| ------------- | --------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `name`        | string          | yes      | Short human-readable name for this profile. Used as the profile name inside llml.                                                          |
-| `backend`     | string          | yes      | One of: `llama`, `vllm`, `ollama`. Profiles are backend-specific; do not omit this field.                                                  |
-| `model_hint`  | string          | no       | Free-text hint for which model family this profile targets (e.g. `"Llama-3-8B-GGUF"`, `"Qwen2.5-72B"`). Used for display only; not a path. |
-| `description` | string          | no       | Human-readable description of what this profile does and when to use it.                                                                   |
-| `args`        | array of string | no       | Command-line arguments in panel-row format (see below). Defaults to empty.                                                                 |
-| `env`         | array of table  | no       | Environment variables as `{key, value}` pairs. Defaults to empty.                                                                          |
+| Field        | Type            | Required | Description                                                                                                                |
+| ------------ | --------------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `name`       | string          | yes      | Short human-readable name for this profile. Used as the profile name inside llml.                                          |
+| `backend`    | string          | yes      | One of: `llama`, `vllm`, `ollama`. Semantics match llml's local canonical profile schema.                                  |
+| `model_hint` | string          | no       | Free-text hint for which local model these profiles should attach to (for example `"Llama-3-8B-GGUF"` or `"Qwen2.5-72B"`). |
+| `args`       | array of string | no       | Command-line arguments in panel-row format (see below). Defaults to empty.                                                 |
+| `env`        | array of table  | no       | Environment variables as `{key, value}` pairs. Defaults to empty.                                                          |
+| `use_case`   | table           | no       | Structured profile purpose metadata. Semantics match llml's local canonical profile schema after import.                   |
+| `hardware`   | table           | no       | Structured hardware compatibility metadata. Semantics match llml's local canonical profile schema after import.            |
+
+### `[profiles.use_case]` format
+
+The `use_case` table maps to llml's local `useCase` object.
+
+| Field     | Type            | Required | Description                                                                 |
+| --------- | --------------- | -------- | --------------------------------------------------------------------------- |
+| `primary` | string          | no       | One of: `chat`, `completion`, `tool-calling`, `embedding`, `eval`, `batch`. |
+| `tags`    | array of string | no       | Freeform normalized tags such as `interactive`, `low-latency`, `balanced`.  |
+
+Normalization rules:
+
+- `primary` should use the canonical values above.
+- Importers may normalize synonyms to the canonical set, matching local llml rules
+  (for example `assistant -> chat`, `tool_calling -> tool-calling`).
+- Tags should be lowercase and kebab-case where practical.
+
+### `[profiles.hardware]` format
+
+The `hardware` table maps to llml's local `hardware` object.
+
+| Field         | Type    | Required | Description                                             |
+| ------------- | ------- | -------- | ------------------------------------------------------- |
+| `class`       | string  | no       | One of: `cpu`, `gpu`, `mixed`.                          |
+| `gpu_count`   | integer | no       | Positive integer GPU count requirement.                 |
+| `min_vram_gb` | integer | no       | Positive integer minimum VRAM requirement in GB.        |
+| `max_vram_gb` | integer | no       | Positive integer maximum or tested VRAM envelope in GB. |
+| `notes`       | string  | no       | Short hardware note or caveat.                          |
+
+Normalization rules:
+
+- Importers may normalize synonyms for `class`, matching local llml rules (for
+  example `cpu-only -> cpu`, `hybrid -> mixed`).
+- Blank or non-positive numeric values should be omitted.
+- If both VRAM bounds are present and `min_vram_gb > max_vram_gb`, importers may
+  swap them to preserve a valid range, matching local llml behavior.
+- For `class = "cpu"`, importer normalization may clear GPU-specific numeric fields,
+  matching local llml behavior.
 
 ### `args` format
 
-Each element of `args` is one "panel row" — the same string a user would type into
+Each element of `args` is one "panel row" - the same string a user would type into
 llml's parameter panel. Two formats are accepted:
 
-- `"--flag value"` — a flag and its value separated by a single space. llml splits
+- `"--flag value"` - a flag and its value separated by a single space. llml splits
   this into two argv tokens at launch time.
-- `"--flag"` — a standalone flag (no value).
-- `"/path/to/something"` — a bare value (no leading dash).
+- `"--flag"` - a standalone flag with no value.
+- `"/path/to/something"` - a bare value with no leading dash.
 
 Do not include the model path or the backend binary name; llml supplies those.
 
 **Storage note:** The portable TOML format stores args as panel-row strings. When
 import tooling writes to `model-params.json` it pre-splits each `"--flag value"`
 into two separate tokens (`["--flag", "value"]`) to match llml's internal storage
-format. This split is the importer's responsibility, not the LLM's — extract args
+format. This split is the importer's responsibility, not the LLM's - extract args
 as panel-row strings in the portable TOML.
 
 ### `[[profiles.env]]` format
@@ -84,28 +124,39 @@ Each entry is a table with two string fields:
 ## Example: llama.cpp profiles
 
 ```toml
-schema_version = 1
+schema_version = 2
 
 [[profiles]]
 name = "balanced-q4"
 backend = "llama"
 model_hint = "Llama-3-8B-GGUF"
-description = "Q4_K_M quant, 80 GPU layers, 4096 ctx — M1 Max 32GB"
 args = ["--n-gpu-layers 80", "--ctx-size 4096", "--threads 8"]
+use_case.primary = "chat"
+use_case.tags = ["interactive", "balanced"]
+hardware.class = "gpu"
+hardware.gpu_count = 1
+hardware.min_vram_gb = 24
+hardware.max_vram_gb = 24
+hardware.notes = "Tested on M1 Max 32GB unified memory."
 
 [[profiles]]
 name = "cpu-only"
 backend = "llama"
 model_hint = "Llama-3-8B-GGUF"
-description = "No GPU offload, low memory footprint"
 args = ["--n-gpu-layers 0", "--ctx-size 2048", "--threads 4"]
+use_case.primary = "completion"
+use_case.tags = ["low-memory"]
+hardware.class = "cpu"
 
 [[profiles]]
 name = "max-context"
 backend = "llama"
 model_hint = "Llama-3-8B-GGUF"
-description = "Full 32k context window, requires more VRAM"
 args = ["--n-gpu-layers 80", "--ctx-size 32768"]
+use_case.primary = "chat"
+use_case.tags = ["long-context"]
+hardware.class = "gpu"
+hardware.min_vram_gb = 48
 
 [[profiles.env]]
 key = "LLAMA_CACHE_SIZE"
@@ -115,34 +166,48 @@ value = "8192"
 ## Example: vLLM profiles
 
 ```toml
-schema_version = 1
+schema_version = 2
 
 [[profiles]]
 name = "single-gpu"
 backend = "vllm"
 model_hint = "Qwen2.5-72B-Instruct-AWQ"
-description = "Single A100 80GB, AWQ quantization"
 args = ["--tensor-parallel-size 1", "--gpu-memory-utilization 0.95", "--max-model-len 8192"]
+use_case.primary = "chat"
+use_case.tags = ["interactive", "balanced"]
+hardware.class = "gpu"
+hardware.gpu_count = 1
+hardware.min_vram_gb = 80
+hardware.max_vram_gb = 80
+hardware.notes = "Single A100 80GB, AWQ quantization."
 
 [[profiles]]
 name = "dual-gpu"
 backend = "vllm"
 model_hint = "Qwen2.5-72B-Instruct-AWQ"
-description = "Two A100 80GB, higher throughput"
 args = ["--tensor-parallel-size 2", "--gpu-memory-utilization 0.90", "--max-model-len 32768"]
+use_case.primary = "batch"
+use_case.tags = ["throughput", "long-context"]
+hardware.class = "gpu"
+hardware.gpu_count = 2
+hardware.min_vram_gb = 160
+hardware.notes = "Two A100 80GB cards."
 ```
 
 ## Example: Ollama profiles
 
 ```toml
-schema_version = 1
+schema_version = 2
 
 [[profiles]]
 name = "gpu-full"
 backend = "ollama"
 model_hint = "llama3.2"
-description = "All layers on GPU, 8k context"
 args = []
+use_case.primary = "chat"
+use_case.tags = ["interactive"]
+hardware.class = "gpu"
+hardware.notes = "All layers on GPU, 8k context."
 
 [[profiles.env]]
 key = "OLLAMA_NUM_GPU"
@@ -152,6 +217,15 @@ value = "999"
 key = "OLLAMA_NUM_CTX"
 value = "8192"
 ```
+
+## Compatibility
+
+`schema_version = 1` was the earlier portable draft. It used `description` as a
+free-text field and did not define structured `use_case` or `hardware` metadata.
+
+For new shared files, emit `schema_version = 2` and prefer structured metadata.
+When importing older material, tools may map a useful legacy `description` into
+`hardware.notes`, but new output should not rely on `description`.
 
 ## LLM extraction instructions
 
@@ -168,35 +242,50 @@ follow these rules:
    string in the `args` array. Standalone flags (`--flash-attn`, `--no-mmap`) are
    single-element strings.
 
-3. **Env extraction:** Extract environment variables set in the source (e.g.,
+3. **Env extraction:** Extract environment variables set in the source (for example
    `export LLAMA_CACHE_SIZE=4096`, `OLLAMA_NUM_GPU=999 ollama run ...`). Place each
    as a `{key, value}` entry under `[[profiles.env]]`.
 
-4. **model_hint:** Set to the model name or family mentioned in the source (e.g.,
-   the model card title or the model name in the `ollama run` command). Use the
-   short name, not a full path.
+4. **model_hint:** Set to the model name or family mentioned in the source (for
+   example the model card title or the model name in the `ollama run` command). Use
+   the short name, not a full path.
 
-5. **name:** Derive from the source context — e.g., `"default"`, `"4-bit-gpu"`,
-   `"cpu-only"`, or the section heading the parameters appeared under. Keep it short.
+5. **name:** Derive from the source context - for example `"default"`,
+   `"4-bit-gpu"`, `"cpu-only"`, or the section heading the parameters appeared under.
+   Keep it short.
 
-6. **description:** One sentence summarizing what the profile does and what hardware
-   or use case it targets, based on information in the source. If the source does not
-   provide enough context, omit this field.
+6. **use_case:** When the source provides enough evidence, set `use_case.primary`
+   using the canonical values (`chat`, `completion`, `tool-calling`, `embedding`,
+   `eval`, `batch`). Add short lowercase tags only when the source materially
+   supports them, such as `interactive`, `throughput`, `long-context`, or
+   `low-latency`. If the source does not justify a field, omit it.
 
-7. **Output:** Emit valid TOML matching this schema. Set `schema_version = 1`. Do not
-   include fields not listed in this spec. Do not include the model path or binary
-   name in `args`.
+7. **hardware:** When the source provides enough evidence, set `hardware.class`,
+   `hardware.gpu_count`, `hardware.min_vram_gb`, `hardware.max_vram_gb`, and
+   `hardware.notes`. Put short compatibility notes or test context in `notes`. If
+   the source does not justify a field, omit it.
+
+8. **Do not extract model-location parameters into the portable profile.** Exclude
+   flags and env vars that identify where to load the model from, because llml
+   supplies the model path itself. Examples to exclude: `LLAMA_CACHE`, `-hf`,
+   `--model`, `--lora`, `HF_HOME`, `--tokenizer`, and similar source-location or
+   cache-location settings.
+
+9. **Output:** Emit valid TOML matching this schema. Set `schema_version = 2`. Do
+   not include fields not listed in this spec. Do not include the model path or
+   binary name in `args`.
 
 ## Versioning
 
-`schema_version = 1` is the only currently valid value. Future versions will be
-documented here. Import tooling should reject files with unrecognized schema versions
-with a clear error.
+`schema_version = 2` is the current portable format. `schema_version = 1` is the
+legacy draft format without structured metadata. Future versions will be documented
+here. Import tooling should reject unrecognized schema versions with a clear error.
 
 ## Relation to internal model-params.json
 
 The portable format and `model-params.json` are separate. The portable format is for
 sharing and importing; `model-params.json` is the internal per-model storage keyed
 by local model path. Import tooling bridges the two: it reads a portable file, asks
-the user which local model to attach the profiles to, and writes into
-`model-params.json` under that model's key.
+the user which local model to attach the profiles to, maps portable metadata into
+the canonical local profile schema, and writes into `model-params.json` under that
+model's key.

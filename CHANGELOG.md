@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 Format: `- MMM-DD, YYYY - HH:MM AM/PM TIMEZONE - [Concise summary]`
 
+- May-01, 2026 - 10:40 PM +0800 - [Profiles: portable profile-format moves to schema v2 with structured `use_case` and `hardware` metadata; `llml-import` maps portable metadata into canonical local profile fields and writes local file version 3]
 - Apr-30, 2026 - 10:55 PM +0800 - [Skills: `llml-import` now detects empty existing `default` profiles, offers replacement during import, and reports replaceable-vs-duplicate collisions clearly]
 - May-01, 2026 - 09:51 PM +0800 - [TUI: Parameter Profiles gains structured profile metadata editing, clearer section focus, tighter modal spacing, and tab navigation that no longer jumps between env and args while editing]
 - Apr-22, 2026 - 01:17 PM +0800 - [v0.2.8 release: package-manager distribution via Homebrew tap, Scoop bucket, and Winget catalog submission flow]

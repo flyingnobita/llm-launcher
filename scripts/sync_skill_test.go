@@ -28,6 +28,12 @@ func TestCanonicalSkillStatesPortableRule(t *testing.T) {
 	if !strings.Contains(docText, "Do not include the model path or the backend binary name; llml supplies those.") {
 		t.Fatal("portable format doc lost the no-model-path rule")
 	}
+	if !strings.Contains(docText, "schema_version = 2") {
+		t.Fatal("portable format doc did not move to schema version 2")
+	}
+	if !strings.Contains(docText, "[profiles.use_case]") || !strings.Contains(docText, "[profiles.hardware]") {
+		t.Fatal("portable format doc lost structured metadata tables")
+	}
 	if !strings.Contains(skillText, "Do not extract model-location parameters into the portable profile.") {
 		t.Fatal("skill does not mirror the portable no-model-location rule")
 	}
@@ -36,6 +42,12 @@ func TestCanonicalSkillStatesPortableRule(t *testing.T) {
 	}
 	if !strings.Contains(skillText, "Do not include model-location parameters in `args` or `env`.") {
 		t.Fatal("fallback summary is missing the degraded-mode portability rule")
+	}
+	if !strings.Contains(skillText, "data = {'version': 3, 'models': {}}") {
+		t.Fatal("skill still writes legacy local model-params version")
+	}
+	if !strings.Contains(skillText, "Portable `use_case` and `hardware` fields map into llml's local") {
+		t.Fatal("fallback summary lost metadata mapping note")
 	}
 }
 
