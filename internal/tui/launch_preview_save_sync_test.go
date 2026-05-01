@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/flyingnobita/llml/internal/models"
+	"github.com/flyingnobita/llml/internal/profiles"
 )
 
 // baseModelForPreview returns a minimal GGUF row and runtime so launch preview is populated.
@@ -103,5 +104,47 @@ func TestPersistParamPanel_refreshesLaunchPreview(t *testing.T) {
 	}
 	if !strings.Contains(after, "ctx-size") || !strings.Contains(after, "4096") {
 		t.Fatalf("preview should include persisted argv; got:\n%s", after)
+	}
+}
+
+func TestMetadataOnlyDifferencesDoNotChangeLaunchPreview(t *testing.T) {
+	cfg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", cfg)
+	t.Setenv("HOME", cfg)
+	t.Setenv("AppData", cfg)
+
+	modelPath := filepath.Join(cfg, "meta.gguf")
+	if err := saveModelEntry(modelPath, modelEntry{
+		Profiles: []ParameterProfile{{
+			Name:     "default",
+			Backend:  "vllm",
+			UseCase:  profiles.UseCaseMetadata{Primary: profiles.UseCaseChat, Tags: []string{"interactive"}},
+			Hardware: profiles.HardwareMetadata{Class: profiles.HardwareClassGPU},
+			Env:      []EnvVar{{Key: "CUDA_VISIBLE_DEVICES", Value: "0"}},
+			Args:     []string{"--ctx-size", "4096"},
+		}},
+		ActiveIndex: 0,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	m := baseModelForPreview(t, modelPath)
+	gotA := launchPreviewCommandLine(m)
+
+	if err := saveModelEntry(modelPath, modelEntry{
+		Profiles: []ParameterProfile{{
+			Name:     "default",
+			Backend:  "",
+			UseCase:  profiles.UseCaseMetadata{},
+			Hardware: profiles.HardwareMetadata{Class: profiles.HardwareClassCPU, Notes: "quiet"},
+			Env:      []EnvVar{{Key: "CUDA_VISIBLE_DEVICES", Value: "0"}},
+			Args:     []string{"--ctx-size", "4096"},
+		}},
+		ActiveIndex: 0,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	gotB := launchPreviewCommandLine(m)
+	if gotA != gotB {
+		t.Fatalf("metadata-only differences changed preview:\nA:\n%s\nB:\n%s", gotA, gotB)
 	}
 }

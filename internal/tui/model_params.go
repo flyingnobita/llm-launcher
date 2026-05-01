@@ -2,93 +2,17 @@ package tui
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
-	"github.com/flyingnobita/llml/internal/fsutil"
-	"github.com/flyingnobita/llml/internal/userdata"
+	"github.com/flyingnobita/llml/internal/profiles"
 )
 
-const modelParamsFileVersion = 2
+const modelParamsFileVersion = profiles.FileVersion
 
-// EnvVar is one environment variable applied when launching the server for a model.
-type EnvVar struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
-}
-
-// ModelParams holds extra environment variables and argv tokens for one parameter profile.
-type ModelParams struct {
-	Env  []EnvVar `json:"env"`
-	Args []string `json:"args"`
-}
-
-// ParameterProfile is one named parameter profile: the env vars and command-line tokens used to run a model.
-type ParameterProfile struct {
-	Name string   `json:"name"`
-	Env  []EnvVar `json:"env"`
-	Args []string `json:"args"`
-}
-
-// modelEntry is stored per model path: several parameter profiles and which one to use when pressing R.
-type modelEntry struct {
-	Profiles    []ParameterProfile `json:"profiles"`
-	ActiveIndex int                `json:"activeIndex"`
-}
-
-type modelParamsV1 struct {
-	Env  []EnvVar `json:"env"`
-	Args []string `json:"args"`
-}
-
-type modelParamsFile struct {
-	Version int                        `json:"version"`
-	Models  map[string]json.RawMessage `json:"models"`
-}
-
-func modelParamsConfigPath() (string, error) {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "llml", "model-params.json"), nil
-}
-
-func parseModelEntry(raw json.RawMessage) (modelEntry, error) {
-	var probe map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &probe); err != nil {
-		return modelEntry{}, err
-	}
-	if _, ok := probe["profiles"]; ok {
-		var e modelEntry
-		if err := json.Unmarshal(raw, &e); err != nil {
-			return modelEntry{}, err
-		}
-		if len(e.Profiles) == 0 {
-			e.Profiles = []ParameterProfile{{Name: "default", Env: nil, Args: nil}}
-		}
-		for i := range e.Profiles {
-			if strings.TrimSpace(e.Profiles[i].Name) == "" {
-				e.Profiles[i].Name = fmt.Sprintf("Parameter Profile %d", i+1)
-			}
-		}
-		e.ActiveIndex = clampInt(e.ActiveIndex, 0, len(e.Profiles)-1)
-		return e, nil
-	}
-	var v1 modelParamsV1
-	if err := json.Unmarshal(raw, &v1); err != nil {
-		return modelEntry{}, err
-	}
-	return modelEntry{
-		Profiles: []ParameterProfile{
-			{Name: "default", Env: v1.Env, Args: v1.Args},
-		},
-		ActiveIndex: 0,
-	}, nil
-}
+type EnvVar = profiles.EnvVar
+type ModelParams = profiles.ModelParams
+type ParameterProfile = profiles.Profile
+type modelEntry = profiles.Entry
 
 func clampInt(v, lo, hi int) int {
 	if v < lo {
@@ -100,113 +24,23 @@ func clampInt(v, lo, hi int) int {
 	return v
 }
 
-func readParamsFile(path string) (modelParamsFile, error) {
-	var f modelParamsFile
-	b, err := os.ReadFile(path)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			f.Models = make(map[string]json.RawMessage)
-			return f, nil
-		}
-		return f, err
-	}
-	if err := json.Unmarshal(b, &f); err != nil {
-		return f, err
-	}
-	if f.Models == nil {
-		f.Models = make(map[string]json.RawMessage)
-	}
-	return f, nil
+func modelParamsConfigPath() (string, error) { return profiles.ConfigPath() }
+
+func parseModelEntry(raw json.RawMessage) (modelEntry, error) {
+	return profiles.ParseEntry(raw, modelParamsFileVersion)
 }
 
-// loadModelEntry returns stored parameter profiles for modelPath, or one empty "default" parameter profile if none.
 func loadModelEntry(modelPath string) (modelEntry, error) {
-	cfgPath, err := modelParamsConfigPath()
-	if err != nil {
-		return modelEntry{}, err
-	}
-	key := modelParamsKey(modelPath)
-	f, err := readParamsFile(cfgPath)
-	if err != nil {
-		return modelEntry{}, err
-	}
-	raw, ok := f.Models[key]
-	if !ok {
-		return modelEntry{
-			Profiles:    []ParameterProfile{{Name: "default", Env: nil, Args: nil}},
-			ActiveIndex: 0,
-		}, nil
-	}
-	return parseModelEntry(raw)
+	return profiles.LoadEntry(modelPath)
 }
 
-// saveModelEntry writes the entry for modelPath and preserves other models in the file.
 func saveModelEntry(modelPath string, ent modelEntry) error {
-	cfgPath, err := modelParamsConfigPath()
-	if err != nil {
-		return err
-	}
-	key := modelParamsKey(modelPath)
-	if err := os.MkdirAll(filepath.Dir(cfgPath), 0o755); err != nil {
-		return err
-	}
-	f, err := readParamsFile(cfgPath)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	if f.Models == nil {
-		f.Models = make(map[string]json.RawMessage)
-	}
-	f.Version = modelParamsFileVersion
-	ent = normalizeModelEntry(ent)
-	if len(ent.Profiles) == 0 {
-		delete(f.Models, key)
-	} else {
-		raw, err := json.Marshal(ent)
-		if err != nil {
-			return err
-		}
-		f.Models[key] = raw
-	}
-	out, err := json.MarshalIndent(&f, "", "  ")
-	if err != nil {
-		return err
-	}
-	_ = userdata.BackupFileIfExists(cfgPath)
-	return fsutil.WriteFileAtomic(cfgPath, out, 0o644)
+	return profiles.SaveEntry(modelPath, ent)
 }
 
-func modelParamsKey(modelPath string) string {
-	key := strings.TrimSpace(modelPath)
-	if key == "" {
-		return ""
-	}
-	if strings.HasPrefix(key, "ollama://") {
-		return key
-	}
-	if strings.Contains(key, "://") {
-		return key
-	}
-	return filepath.Clean(key)
-}
+func modelParamsKey(modelPath string) string { return profiles.ModelParamsKey(modelPath) }
 
-func normalizeModelEntry(ent modelEntry) modelEntry {
-	var profiles []ParameterProfile
-	for i := range ent.Profiles {
-		p := ent.Profiles[i]
-		nm := normalizeModelParams(ModelParams{Env: p.Env, Args: p.Args})
-		name := strings.TrimSpace(p.Name)
-		if name == "" {
-			name = fmt.Sprintf("Parameter Profile %d", len(profiles)+1)
-		}
-		profiles = append(profiles, ParameterProfile{Name: name, Env: nm.Env, Args: nm.Args})
-	}
-	if len(profiles) == 0 {
-		return modelEntry{}
-	}
-	idx := clampInt(ent.ActiveIndex, 0, len(profiles)-1)
-	return modelEntry{Profiles: profiles, ActiveIndex: idx}
-}
+func normalizeModelEntry(ent modelEntry) modelEntry { return profiles.NormalizeEntry(ent) }
 
 // activeProfileNameForPreview returns the active profile name for the selected model: the
 // in-memory name when the params panel is open for that model, otherwise from disk.
@@ -254,16 +88,7 @@ func modelParamsForLaunchPreview(m Model) (ModelParams, bool) {
 
 // loadModelParamsForRun returns the active parameter profile's env/args for modelPath (for R / server launch).
 func loadModelParamsForRun(modelPath string) (ModelParams, error) {
-	ent, err := loadModelEntry(modelPath)
-	if err != nil {
-		return ModelParams{}, err
-	}
-	if len(ent.Profiles) == 0 {
-		return ModelParams{}, nil
-	}
-	idx := clampInt(ent.ActiveIndex, 0, len(ent.Profiles)-1)
-	p := ent.Profiles[idx]
-	return normalizeModelParams(ModelParams{Env: p.Env, Args: p.Args}), nil
+	return profiles.LoadParamsForRun(modelPath)
 }
 
 // mergeEnv overlays extra on base: keys present in extra replace any existing assignment.
@@ -294,47 +119,10 @@ func mergeEnv(base []string, extra []EnvVar) []string {
 }
 
 // flattenArgLines expands panel rows (each may be one token or "--flag value") to argv tokens.
-func flattenArgLines(lines []string) []string {
-	var out []string
-	for _, line := range lines {
-		out = append(out, expandArgLine(line)...)
-	}
-	return out
-}
+func flattenArgLines(lines []string) []string { return profiles.FlattenArgLines(lines) }
 
 // normalizeModelParams trims keys and args for storage.
-func normalizeModelParams(p ModelParams) ModelParams {
-	var env []EnvVar
-	for _, e := range p.Env {
-		k := strings.TrimSpace(e.Key)
-		if k == "" {
-			continue
-		}
-		env = append(env, EnvVar{Key: k, Value: e.Value})
-	}
-	var args []string
-	for _, a := range p.Args {
-		a = strings.TrimSpace(a)
-		if a == "" {
-			continue
-		}
-		args = append(args, expandArgLine(a)...)
-	}
-	return ModelParams{Env: env, Args: args}
-}
+func normalizeModelParams(p ModelParams) ModelParams { return profiles.NormalizeModelParams(p) }
 
-// expandArgLine maps one row from the parameter panel to argv tokens. A line
-// that starts with '-' and contains a space is split on the first space only,
-// so "--max-model-len 4096" becomes two tokens and "-m /path/with spaces" keeps
-// the path as one value. Otherwise the line is a single token.
-func expandArgLine(line string) []string {
-	line = strings.TrimSpace(line)
-	if line == "" {
-		return nil
-	}
-	if !strings.HasPrefix(line, "-") || !strings.Contains(line, " ") {
-		return []string{line}
-	}
-	i := strings.IndexByte(line, ' ')
-	return []string{line[:i], strings.TrimSpace(line[i+1:])}
-}
+// expandArgLine maps one row from the parameter panel to argv tokens.
+func expandArgLine(line string) []string { return profiles.ExpandArgLine(line) }
