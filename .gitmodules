@@ -1,3 +1,4 @@
 [submodule "dev-docs"]
 	path = dev-docs
 	url = git@github.com:flyingnobita/llml-internal.git
+	branch = main
