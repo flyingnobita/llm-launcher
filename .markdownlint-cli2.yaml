@@ -2,6 +2,7 @@
 gitignore: true
 ignores:
   - dev-docs/**
+  - CLAUDE.md
 config:
   MD007:
     indent: 2 # match Prettier's Markdown nested list indent

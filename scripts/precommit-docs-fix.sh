@@ -14,6 +14,9 @@ for file in "$@"; do
   [ -f "$file" ] || continue
 
   case "$file" in
+    CLAUDE.md)
+      # Keep Claude's @AGENTS.md pointer stub unformatted and unlintered.
+      ;;
     *.md)
       md_files+=("$file")
       prettier_files+=("$file")

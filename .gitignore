@@ -92,5 +92,4 @@ logs/*
 .gemini/
 .gstack/
 .opencode/
-CLAUDE.md
 TODOS.md

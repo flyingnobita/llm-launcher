@@ -102,20 +102,21 @@ Keep that `.agents` file as the source of truth. The tracked Claude workspace co
 with **`./scripts/sync-skill --workspace --tool claude`** after editing the canonical
 skill. User-level installs for local agent tools are handled by **`scripts/sync-skill`**.
 
-Set machine-specific env (for example `LLAMA_CPP_PATH`) in `mise.local.toml` (gitignored); keep shared tool/tasks config in `mise.toml`.
+Set machine-specific env (for example `LLAMA_CPP_PATH`) in `mise.local.toml` (gitignored); keep shared tool/tasks config in `mise.toml`. For a **linked git worktree**, run **`mise run worktree-setup`** in that checkout so dependencies install and **`scripts/sync_gitignore_agents.sh`** runs with **`LLML_AGENTS_SYNC=import`**, pulling gitignored paths listed at the top of that script (agent dirs, `TODOS.md`, `mise.local.toml`) from the **primary** checkout by default; set **`LLML_AGENTS_PEER`** or **`LLML_AGENTS_SYNC`** (`import` / `export` / `none`) to override.
 
 ### Tasks (mise)
 
-| Task                                           | Command                |
-| ---------------------------------------------- | ---------------------- |
-| Run                                            | `mise run run`         |
-| Build                                          | `mise run build`       |
-| Format (all)                                   | `mise run format`      |
-| Lint (all)                                     | `mise run lint`        |
-| Test                                           | `mise run test`        |
-| Full check                                     | `mise run check`       |
-| Sync submodules (to parent pin)                | `mise run sync`        |
-| Pull latest (`origin/main` + submodule remote) | `mise run pull-latest` |
+| Task                                           | Command                   |
+| ---------------------------------------------- | ------------------------- |
+| Run                                            | `mise run run`            |
+| Build                                          | `mise run build`          |
+| Format (all)                                   | `mise run format`         |
+| Lint (all)                                     | `mise run lint`           |
+| Test                                           | `mise run test`           |
+| Full check                                     | `mise run check`          |
+| Sync submodules (to parent pin)                | `mise run sync`           |
+| Pull latest (`origin/main` + submodule remote) | `mise run pull-latest`    |
+| New worktree (deps + import ignored paths)     | `mise run worktree-setup` |
 
 ### Docs formatting
 
@@ -161,3 +162,31 @@ committed (e.g. `dev-docs/BACKLOG.md` for a personal backlog).
 
 ADRs live in `dev-docs/adr/YYYYMMDD-short-title.md`; index in
 `dev-docs/DECISIONS.md`. Add an ADR for any significant design choice.
+
+## GBrain Configuration (configured by /setup-gbrain)
+
+- Engine: postgres
+- Config file: ~/.gbrain/config.json (mode 0600)
+- Setup date: 2026-05-02
+- MCP registered: yes
+- Memory sync: full
+- Current repo policy: read-write
+
+### Skill routing
+
+When the user's request matches an available skill, invoke it via the Skill tool. When in doubt, invoke the skill.
+
+Key routing rules:
+
+- Product ideas/brainstorming → invoke /office-hours
+- Strategy/scope → invoke /plan-ceo-review
+- Architecture → invoke /plan-eng-review
+- Design system/plan review → invoke /design-consultation or /plan-design-review
+- Full review pipeline → invoke /autoplan
+- Bugs/errors → invoke /investigate
+- QA/testing site behavior → invoke /qa or /qa-only
+- Code review/diff check → invoke /review
+- Visual polish → invoke /design-review
+- Ship/deploy/PR → invoke /ship or /land-and-deploy
+- Save progress → invoke /context-save
+- Resume context → invoke /context-restore
