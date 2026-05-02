@@ -106,14 +106,16 @@ Set machine-specific env (for example `LLAMA_CPP_PATH`) in `mise.local.toml` (gi
 
 ### Tasks (mise)
 
-| Task         | Command           |
-| ------------ | ----------------- |
-| Run          | `mise run run`    |
-| Build        | `mise run build`  |
-| Format (all) | `mise run format` |
-| Lint (all)   | `mise run lint`   |
-| Test         | `mise run test`   |
-| Full check   | `mise run check`  |
+| Task                                             | Command                  |
+| ------------------------------------------------ | ------------------------ |
+| Run                                              | `mise run run`           |
+| Build                                            | `mise run build`         |
+| Format (all)                                     | `mise run format`        |
+| Lint (all)                                       | `mise run lint`          |
+| Test                                             | `mise run test`          |
+| Full check                                       | `mise run check`         |
+| Sync submodules (to parent pin)                  | `mise run sync`          |
+| Pull latest (`origin/main` + submodule remote)   | `mise run pull-latest`   |
 
 ### Docs formatting
 
