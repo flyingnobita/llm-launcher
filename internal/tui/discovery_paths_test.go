@@ -10,6 +10,27 @@ import (
 	"github.com/flyingnobita/llml/internal/models"
 )
 
+// extractModelRescanDoneMsg walks nested tea.BatchMsg trees (e.g. rescanModelsCmd when
+// Ollama is installed but stopped returns a batch before the scan completes).
+func extractModelRescanDoneMsg(msg tea.Msg) (modelRescanDoneMsg, bool) {
+	if rm, ok := msg.(modelRescanDoneMsg); ok {
+		return rm, true
+	}
+	batch, ok := msg.(tea.BatchMsg)
+	if !ok {
+		return modelRescanDoneMsg{}, false
+	}
+	for _, c := range batch {
+		if c == nil {
+			continue
+		}
+		if rm, ok := extractModelRescanDoneMsg(c()); ok {
+			return rm, true
+		}
+	}
+	return modelRescanDoneMsg{}, false
+}
+
 // modelRescanFromSaveCmd unwraps modelRescanDoneMsg from saveDiscoveryPaths tea.Cmd
 // (either a direct rescan cmd or tea.Batch with rescan + clearLastRunNoteAfterCmd).
 func modelRescanFromSaveCmd(t *testing.T, cmd tea.Cmd) modelRescanDoneMsg {
@@ -17,24 +38,10 @@ func modelRescanFromSaveCmd(t *testing.T, cmd tea.Cmd) modelRescanDoneMsg {
 	if cmd == nil {
 		t.Fatal("expected non-nil cmd")
 	}
-	msg := cmd()
-	if rm, ok := msg.(modelRescanDoneMsg); ok {
+	if rm, ok := extractModelRescanDoneMsg(cmd()); ok {
 		return rm
 	}
-	batch, ok := msg.(tea.BatchMsg)
-	if !ok {
-		t.Fatalf("expected modelRescanDoneMsg or tea.BatchMsg, got %T", msg)
-	}
-	for _, c := range batch {
-		if c == nil {
-			continue
-		}
-		sub := c()
-		if rm, ok := sub.(modelRescanDoneMsg); ok {
-			return rm
-		}
-	}
-	t.Fatal("expected modelRescanDoneMsg inside batch")
+	t.Fatal("expected modelRescanDoneMsg in cmd output tree")
 	return modelRescanDoneMsg{}
 }
 

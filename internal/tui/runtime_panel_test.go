@@ -101,7 +101,8 @@ func TestRuntimePanelLines_VLLMVenvInferred(t *testing.T) {
 	t.Setenv(models.EnvVLLMServerPort, "")
 	t.Setenv("PATH", binDir)
 
-	info := models.DiscoverRuntime()
+	// Avoid host-specific DiscoverRuntime() (e.g. ~/.venv-vllm-metal before PATH).
+	info := models.RuntimeInfo{VLLMPath: vllm}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		t.Fatal(err)
